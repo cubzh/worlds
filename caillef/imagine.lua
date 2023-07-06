@@ -31,7 +31,7 @@ end
 
 -- MENU
 local menu = {
-	dlg = nil, x = 0, y = 0, impact = nil, pos = nil, input = nil,
+	dlg = nil, x = 0, y = 0, impact = nil, pos = nil, input = nil, visible = false,
 	animate = function(self, node)
 		local anim = ease:outElastic(node.object, 0.5)
 		node.object.LocalScale = Number3(1, 0, 0)
@@ -61,7 +61,7 @@ local menu = {
 		end
 	end,
 	create = function(menu, referrer)	-- create menu with cached init info
-		menu:hide()
+		menu.visible = true
 		local root = ui:createNode()
 		root.pos = Number3(Screen.Width * menu.x, Screen.Height * menu.y, 0)
 		menu:animate(root)
@@ -80,6 +80,7 @@ local menu = {
 		return root
 	end,
 	hide = function(menu)
+		menu.visible = false
 		if menu.dlg ~= nil then
 			if menu.input ~= nil then menu.input.object.Tick = nil end	-- TEMP BUG WORKAROUND :)
 			menu.input = nil
@@ -92,22 +93,25 @@ local menu = {
 	end,
 	createInput = function(menu, referrer)	-- input needed with referrer
 		menu:hide()
+		menu.visible = true
 		local root = ui:createNode()
 		local input = ui:createTextInput(nil, referrer.placeholder, "big")
 		if referrer.useAI then querySuggestionPool(input.placeholder) end
-		input.Width = 300
 		input:setParent(root)
 		input:focus()
 		input.onSubmit = referrer.send
 		root.pos = Number3(Screen.Width * menu.x - (input.Width * 0.5), (Screen.Height * menu.y) + input.Height, 0)
 		local send = ui:createButton("✅", {textSize="big"})
 		send:setParent(root)
-		send.pos = Number3(input.pos.X + input.Width, input.pos.Y, 0)
 		send.onRelease = function() referrer.send(input) end
 		if referrer.send == nil then send.onRelease = (function() menu:hide() end) end
 		menu:animate(root)
 		menu.input = input
 		menu.dlg = root
+		input.object.Tick = function()
+			send.pos = Number3(input.pos.X + input.Width, input.pos.Y, 0)
+			input.Width = math.max(280, input.string.Width) + 16
+		end
 		if referrer.disc then spawnDisc(menu.impact, menu.pos) end	-- specific to this game
 	end
 }
@@ -255,7 +259,9 @@ Client.OnStart = function()
 	ui = require "uikit"
 	ui:init()
 	-- non-modal instructions
-	local text = ui:createText(" 🎥 Drag to move camera,\n ☝️ Long press to bring up CREATOR MENU!\n 👁 Long press on an image for info.", Color(1.0,1.0,1.0))
+	local text = ui:createText(" 🎥 Drag to move camera,\n   ☝️ Click to bring up CREATOR MENU!\n     👁 Click on an image for info.", Color(1.0,1.0,1.0))
+	text.object.BackgroundColor = Color(0,0,0,128)
+	text.object.Padding = 8
 	text.parentDidResize = function() text.pos.Y = 8 end
 	-- intrusive hint
 	gameHintText = ui:createText("Start by pressing a block!", Color(1.0,1.0,1.0), "big")
@@ -269,22 +275,28 @@ end
 -- UI CODE
 
 Pointer.Down = function(pe)
-	menu:hide()
 end
 
 Pointer.Up = function(pe)
 end
 
-Pointer.Drag = function(pe)
+Pointer.Drag2Begin = function(pe)
+end
+
+Pointer.Drag2 = function(pe)
 end
 
 Screen.DidResize = function(w,h)
 	ui:fitScreen()
 end
 
-Pointer.LongPress = function(pe)
+Pointer.Click = function(pe)
+	if menu.visible then
+		menu:hide()
 	-- hijack ui:pointerDown logic
-	menu:init(pe.X, pe.Y, pe.Position, pe.Direction, pe:CastRay())
+	else
+		menu:init(pe.X, pe.Y, pe.Position, pe.Direction, pe:CastRay())
+	end
 end
 
 -- CLIENT CODE
@@ -351,8 +363,10 @@ end
 Client.OnSubmit = function() end
 
 Client.OnChat = function(message)
-	local impact = Camera:CastRay(Map.CollisionGroups)
-	imageQuery(message, impact, Camera.Position + Camera.Forward * impact.Distance)
+	local e = Event()
+	e.action = "chat"
+	e.msg = message
+	e:SendTo(Players)
 end
 
 Client.DidReceiveEvent = function(e)
@@ -376,6 +390,7 @@ Client.DidReceiveEvent = function(e)
 				return
 			end
 		elseif e.pos then
+			print("sync packet from server")
 			pos = e.pos
 			rotY = e.rotY
 		else
@@ -412,6 +427,7 @@ Client.DidReceiveEvent = function(e)
 
 			Timer(1, function()
 				s.Physics = PhysicsMode.TriggerPerBlock
+				s.CollisionGroups = {}
 			end)
 			-- s.Scale = 0.7
 			sfx("waterdrop_2", {Position = pos})
@@ -420,10 +436,10 @@ Client.DidReceiveEvent = function(e)
 			print("Can't load shape")
 			sfx("twang_2", {Position = pos})
 		end
-	end
-
-	if e.action == "otherGen" then
+	elseif e.action == "otherGen" then
 		makeBubble(e)
+	elseif e.action == "chat" then
+		print(e.Sender.Username..": "..e.msg)
 	end
 end
 
@@ -442,8 +458,10 @@ Server.OnPlayerJoin = function(p)
 				local e = Event()
 				e.vox = data.Body
 				e.id = d.e.id
-				e.pos = d.e.po
+				e.pos = d.e.pos
 				e.rotY = d.e.rotY
+				e.userInput = d.e.userInput
+				e.user = d.e.user
 				e.action = "vox"
 				e:SendTo(p)
 			end)
