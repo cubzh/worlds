@@ -5,7 +5,7 @@ Config = {
 }
 
 local DEBUG = false -- starts with a single player
-local SOUND = false
+local SOUND = true
 local ROUND_DURATION = 240
 local SPAWN_BLOCK_COLOR = Color(136,0,252)
 local MAX_NB_KILLS_END_ROUND = 40
