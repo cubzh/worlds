@@ -6,8 +6,9 @@ Config = {
 
 local DEBUG = false -- starts with a single player
 local SOUND = false
-local ROUND_DURATION = 20
+local ROUND_DURATION = 240
 local SPAWN_BLOCK_COLOR = Color(136,0,252)
+local MAX_NB_KILLS_END_ROUND = 40
 
 Config.ConstantAcceleration.Y = -300
 
@@ -20,83 +21,7 @@ local weaponsList = {
     --{ name="Bluecar", item="caillef.bluecar", scale=0.5, sfx="carhonk_", cooldown=1, mode="auto", dmg=100, ammo=10 },
 }
 
-indicatorsPool = {}
-addDamageIndicator = function(shooterPos)
-    local displayedTime = 0.5
-    local depth = 3.0
-    local radius = 15.0
-    local pos = Player:PositionWorldToLocal(shooterPos)
-    local angle = math.atan(pos.X, pos.Z)
-
-    local damageIndicator = nil
-    if #indicatorsPool == 0 then
-        damageIndicator = Shape(Items.xavier.damage_indicator)
-        damageIndicator.Scale = 0.02
-        damageIndicator.Pivot = damageIndicator:LocalToBlock(Number3(0, radius, 0))
-    else
-        damageIndicator = indicatorsPool[#indicatorsPool]
-        indicatorsPool[#indicatorsPool] = nil
-    end
-    Camera:AddChild(damageIndicator)
-	damageIndicator.Physics = PhysicsMode.Disabled
-    damageIndicator.LocalPosition = Number3(0, 0, depth)
-    damageIndicator.LocalRotation.Z = -angle + math.pi
-
-    local t = Timer(displayedTime, function()
-        damageIndicator:SetParent(nil)
-        table.insert(indicatorsPool, damageIndicator)
-    end)
-end
-
-function sfx(name, position, volume)
-    if sfxPool == nil then sfxPool = {} end
-
-    local recycled
-    local pool = sfxPool[name]
-    if pool == nil then
-        sfxPool[name] = {}
-    else
-        recycled = table.remove(pool)
-    end 
-
-    if recycled ~= nil then
-        recycled.Position = position
-        recycled.Volume = volume or 0.3
-        recycled:Play()
-        Timer(recycled.Length + 0.1, function()
-            table.insert(sfxPool[name], recycled)
-        end)
-        return
-    end
-
-    local as = AudioSource()
-    as.Sound = name
-    as.Volume = volume or 0.3
-    as.Radius = 200
-    as.Spatialized = true
-    as:SetParent(World)
-    as:Play()
-
-    Timer(as.Length + 0.1, function()
-        table.insert(sfxPool[name], as)
-    end)
-end
-
--- Custom audio source constructor
-local audioSource = function(name, parent, sp, v, r)
-    local as = AudioSource()
-    as.Sound = name
-    as:SetParent(parent or World)
-    as.Volume = v
-    as.Spatialized = sp
-    if r ~= nil then
-        as.Radius = r
-    end
-    return as
-end
-
 Client.OnStart = function()
-	killfeed:init()
     -- Map
     Map.Scale = 12
 	Map.Layers = { 1, 4 }
@@ -114,6 +39,9 @@ Client.OnStart = function()
     weapons:setPlayerMaxHP(100)
 
     victoryPodium:init()
+    uiRoundScore:init()
+    uiRoundDuration:init()
+    killfeed:init()
 
     cameraCustomFirstPerson = function()
         Camera:SetModeFirstPerson()
@@ -172,9 +100,6 @@ Client.OnStart = function()
         Player.Rotation = { 0, math.random() * 2 * math.pi, 0 }
         Player.Velocity = { 0, 0, 0 }
     end
-
-    uiRoundScore:init()
-    uiRoundDuration:init()
     
     -- Game State Manager
     gsm.clientLobbyOnStart = function()
@@ -226,23 +151,6 @@ Client.OnStart = function()
         uiRoundDuration:_refreshUI()
         uiRoundDuration.bg.LocalPosition.Y = uiRoundScore.bg.LocalPosition.Y + uiRoundScore.bg.Height
     end
-
-	-- MINIMAP (lag parfois)
-	--[[
-	local minimapCam = Camera()
-	minimapCam.Layers = 4
-	minimapCam.On = true
-	minimapCam.Width = 1000
-	minimapCam.Height = 1000
-	minimapCam.Projection = ProjectionMode.Orthographic
-	minimapCam.TargetWidth = 300
-	minimapCam.TargetHeight = 300
-	minimapCam.TargetY = Screen.Height - minimapCam.TargetHeight
-	minimapCam:SetParent(World)
-	minimapCam.Position = Number3(Map.Width / 2, Map.Height + 60, Map.Depth / 2) * Map.Scale
-	minimapCam.LocalRotation.X = math.pi / 2
-	Fog.On = false
-	--]]
 end
 
 Client.OnPlayerJoin = function(p)
@@ -254,17 +162,6 @@ Client.OnPlayerJoin = function(p)
 		bg.Height = Screen.Height
 	end
     print(p.Username.." joined the game.")
-    weapons:initPlayer(p)
-
-	--[[ no minimap
-	local minimapPoint = MutableShape()
-	minimapPoint:SetParent(p)
-	local colors = { Color.Red, Color.Yellow, Color.Blue, Color.Orange, Color.Green, Color.Red, Color.Yellow, Color.Blue, Color.Red }
-	minimapPoint:AddBlock(colors[p.ID + 1],0,0,0)
-	minimapPoint.Scale = 30
-	minimapPoint.Layers = 4
-	minimapPoint.Physics = PhysicsMode.Disabled
-	--]]
 
 	Timer(1, function()
 		cameraCustomFirstPerson()
@@ -273,19 +170,6 @@ Client.OnPlayerJoin = function(p)
 			bg:remove()
 		end
 	end)
-
-	--[[ lag
-	local config = {
-		velocity = function()
-			--return Number3(math.random() * 200 - 100, math.random() * 140, math.random() * 200 - 100)
-			return Number3(((math.random() * 2) - 1) * 30, 50 + math.random(20), ((math.random() * 2) - 1) * 30)
-		end,
-		life = function() return 0.4 end,
-		color = function() return Color(50,200,50) end
-	}
-	p.bloodEmitter = require("particles"):newEmitter(config)
-	p.bloodEmitter:SetParent(p)
-	--]]
 end
 
 Client.OnPlayerLeave = function(p)
@@ -305,9 +189,8 @@ Client.AnalogPad = function(dx, dy)
 end
 
 Client.DirectionalPad = function(x, y)
-    -- No move if dead
-	if specialGameMode == "Lune" then x = x * 0.5 y = y * 0.5 end
     dpadX = x dpadY = y
+    -- No move if dead
     if Player:isDead() or gsm.state == gsm.States.EndRound then
 		return
 	end
@@ -345,10 +228,6 @@ Client.DidReceiveEvent = function(event)
 end
 
 Client.Tick = function(dt)
-    -- Modules
-    walkSoundModule:tick(dt)
-    weapons:tick(dt)
-
     -- Offmap
     if Player.Position.Y < -500 then
         dropPlayer()
@@ -360,11 +239,7 @@ end
 Client.Action1 = function()
 	if gsm.state == gsm.States.EndRound or Player:isDead() then return end
     if Player.IsOnGround then
-		if specialGameMode == "Lune" then
-	        Player.Velocity.Y = 75
-		else
-	        Player.Velocity.Y = 115
-		end
+        Player.Velocity.Y = 115
     end
 end
 
@@ -380,6 +255,86 @@ end
 Client.Action3Release = function()
 	weapons:reload()
 end
+
+
+
+
+indicatorsPool = {}
+addDamageIndicator = function(shooterPos)
+    local displayedTime = 0.5
+    local depth = 3.0
+    local radius = 15.0
+    local pos = Player:PositionWorldToLocal(shooterPos)
+    local angle = math.atan(pos.X, pos.Z)
+
+    local damageIndicator = nil
+    if #indicatorsPool == 0 then
+        damageIndicator = Shape(Items.xavier.damage_indicator)
+        damageIndicator.Scale = 0.02
+        damageIndicator.Pivot = damageIndicator:LocalToBlock(Number3(0, radius, 0))
+    else
+        damageIndicator = indicatorsPool[#indicatorsPool]
+        indicatorsPool[#indicatorsPool] = nil
+    end
+    Camera:AddChild(damageIndicator)
+	damageIndicator.Physics = PhysicsMode.Disabled
+    damageIndicator.LocalPosition = Number3(0, 0, depth)
+    damageIndicator.LocalRotation.Z = -angle + math.pi
+
+    local t = Timer(displayedTime, function()
+        damageIndicator:SetParent(nil)
+        table.insert(indicatorsPool, damageIndicator)
+    end)
+end
+
+-- This function spawn SFX if needed an recycle it
+function sfx(name, position, volume)
+    if sfxPool == nil then sfxPool = {} end
+
+    local recycled
+    local pool = sfxPool[name]
+    if pool == nil then
+        sfxPool[name] = {}
+    else
+        recycled = table.remove(pool)
+    end 
+
+    if recycled ~= nil then
+        recycled.Position = position
+        recycled.Volume = volume or 0.3
+        recycled:Play()
+        Timer(recycled.Length + 0.1, function()
+            table.insert(sfxPool[name], recycled)
+        end)
+        return
+    end
+
+    local as = AudioSource()
+    as.Sound = name
+    as.Volume = volume or 0.3
+    as.Radius = 200
+    as.Spatialized = true
+    as:SetParent(World)
+    as:Play()
+
+    Timer(as.Length + 0.1, function()
+        table.insert(sfxPool[name], as)
+    end)
+end
+
+-- This function create an audio source, not recycled, handled by the developer
+function audioSource(name, parent, sp, v, r)
+    local as = AudioSource()
+    as.Sound = name
+    as:SetParent(parent or World)
+    as.Volume = v
+    as.Spatialized = sp
+    if r ~= nil then
+        as.Radius = r
+    end
+    return as
+end
+
 
 --
 -- Server code
@@ -421,22 +376,17 @@ Server.DidReceiveEvent = function(e)
         local source = Players[math.floor(e.s)]
         source.nbKills = source.nbKills or 0
         source.nbKills = source.nbKills + 1
-        local e = Event()
-        e.action = "nbKills"
-        e.p = source.ID
-        e.nb = source.nbKills
-        e:SendTo(Players)
+        local e2 = Event()
+        e2.action = "nbKills"
+        e2.p = source.ID
+        e2.nb = source.nbKills
+        e2:SendTo(Players)
 
-        if source.nbKills >= 20 then
+        if source.nbKills >= MAX_NB_KILLS_END_ROUND then
             gsm:serverSetGameState(gsm.States.EndRound)
         end
     end
 end
-
-
-
-
-
 
 
 
@@ -456,31 +406,31 @@ walkSoundModuleMetatable = {
         tick = function(self, dt)
             if not self._isInit then self:_init() end
             Player.walk = Player.walk + dt
-            if Player.IsOnGround and (Player.Motion.SquaredLength > 0.01) then
-                if Player.walk > 0.3 then
-                    Player.walk = 0
-                    if Player.BlockUnderneath == nil then return end
-                    local audio = self.audio
-                    local fileNum = math.random(5) 
-                    audio:Stop()
-                    audio.Volume = 0.17 + math.random() * 0.06
-                    audio.Pitch = 0.95 + math.random() * 0.1
-                    local surfaceType = "grass"
-                    local color = Player.BlockUnderneath.Color
-                    if color.R == color.G and color.R == color.B then -- shade of grey
-                        surfaceType = "concrete"
-                    end
-                    if color.R == color.G and color.R == color.B then -- shade of grey
-                        surfaceType = "concrete"
-                    end
-                    audio.Sound = "walk_"..surfaceType.."_"..fileNum
-                    audio:Play()
-                end
+            if not (Player.IsOnGround and (Player.Motion.SquaredLength > 0.01) and Player.walk > 0.3) then return end
+            Player.walk = 0
+            if Player.BlockUnderneath == nil then return end
+            local audio = self.audio
+            local fileNum = math.random(5) 
+            audio:Stop()
+            audio.Volume = 0.17 + math.random() * 0.06
+            audio.Pitch = 0.95 + math.random() * 0.1
+            local surfaceType = "grass"
+            local color = Player.BlockUnderneath.Color
+            if color.R == color.G and color.R == color.B then -- shade of grey
+                surfaceType = "concrete"
             end
+            if color.R == color.G and color.R == color.B then -- shade of grey
+                surfaceType = "concrete"
+            end
+            audio.Sound = "walk_"..surfaceType.."_"..fileNum
+            audio:Play()
         end,
     }
 }
 setmetatable(walkSoundModule, walkSoundModuleMetatable)
+LocalEvent:Listen(LocalEvent.Name.Tick, function(dt)
+    walkSoundModule:tick(dt)
+end)
 
 entityHP = {}
 entityHPMetatable = {
@@ -787,7 +737,7 @@ weaponsMetatable = {
             p.shootAsIndex = p.shootAsIndex + 1
             if p.shootAsIndex > #p.shootAs then p.shootAsIndex = 1 end
         end,
-        initPlayer = function(self, p)
+        _initPlayer = function(self, p)
             p.shootAs = {}
             p.shootAsIndex = 1
             local as = audioSource("gun_shot_2", p.Head, true, 0.2, 200)
@@ -848,11 +798,8 @@ weaponsMetatable = {
             	self:updateAmmoUI()                            
             end)
 		end,
-        tick = function(self, dt)
+        _tick = function(self, dt)
             if self.cooldown > 0 then
-				if specialGameMode == "Lune" then
-					dt = dt * 0.5
-				end
 				self.cooldown = self.cooldown - dt
 				return
 			end
@@ -882,28 +829,23 @@ weaponsMetatable = {
 
 			local mapImpact = Camera:CastRay(Map.CollisionGroups, Player)
             local impact
-			if specialGameMode == "Ayrobot" then
-       	 	impact = Camera:CastRay({ 7 }, Player)
-				if impact then impact.mode = specialGameMode end
-			else
-				if self.headshotMultiplier then
-        	        for _,p in pairs(Players) do
-        	            if p ~= Player then
-        	                local tmp = Camera:CastRay(p.Head, Player)
-        	                if tmp and p.hp > 0 and (not mapImpact or mapImpact.Distance > tmp.Distance) then
-        	                    impact = tmp
-        	                    impact.p = p
-        	                    impact.head = true
-        	                    break
-        	                end
-        	            end
-        	        end
-        	    end
-    
-        	    if not impact then
-        	        impact = Camera:CastRay(Player.CollisionGroups + Map.CollisionGroups, Player)
-        	    end
-			end
+            if self.headshotMultiplier then
+                for _,p in pairs(Players) do
+                    if p ~= Player then
+                        local tmp = Camera:CastRay(p.Head, Player)
+                        if tmp and p.hp > 0 and (not mapImpact or mapImpact.Distance > tmp.Distance) then
+                            impact = tmp
+                            impact.p = p
+                            impact.head = true
+                            break
+                        end
+                    end
+                end
+            end
+
+            if not impact then
+                impact = Camera:CastRay(Player.CollisionGroups + Map.CollisionGroups, Player)
+            end
 
             if impact and impact.Object.CollisionGroups == Map.CollisionGroups then
 				local impact = Camera:CastRay(impact.Object, Player)
@@ -1016,15 +958,8 @@ weaponsMetatable = {
 			end
         end,
         setWeapon = function(self, p, id, forceNotFPS)
-			if specialGameMode == "Vache" then
-				id = 5
-			elseif specialGameMode == "Ayrobot" then
-				id = 3
-			else
-
-				if id == 5 then id = math.random(4) end
-			end
-
+			if id == 5 then id = math.random(4) end
+			
             local weaponInfo = self.list[id]
             if not weaponInfo then return end
 
@@ -1076,6 +1011,12 @@ weaponsMetatable = {
     }
 }
 setmetatable(weapons, weaponsMetatable)
+LocalEvent:Listen(LocalEvent.Name.Tick, function(dt)
+    weapons:_tick(dt)
+end)
+LocalEvent:Listen(LocalEvent.Name.OnPlayerJoin, function(p)
+    weapons:_initPlayer(p)
+end)
 
 uiRoundDuration = {}
 local uiRoundDurationMetatable = {
