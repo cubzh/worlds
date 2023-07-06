@@ -5,10 +5,9 @@ Config = {
 }
 
 local DEBUG = false -- starts with a single player
-local SOUND = true
-local ROUND_DURATION = 240
+local SOUND = false
+local ROUND_DURATION = 20
 local SPAWN_BLOCK_COLOR = Color(136,0,252)
-local specialGameModeDuration = 60
 
 Config.ConstantAcceleration.Y = -300
 
@@ -47,129 +46,6 @@ addDamageIndicator = function(shooterPos)
         damageIndicator:SetParent(nil)
         table.insert(indicatorsPool, damageIndicator)
     end)
-end
-
-local botsSpawnPointColor = Color(255,18,0)
-local botsSpawnPoints = {}
-local botsPool = {}
-loadAyrobots = function()
-	local localevent = require("localevent")
-	localevent:listen(localevent.name.AvatarLoaded, function(p)
-		if p ~= Player then return end
-		Player.Motion = { 0, 0, 0 }
-		local bot = Shape(Player.Body, {includeChildren = true})
-		if not bot then return end
-		local body = {}
-		body.body = bot
-		body.shirt = bot:GetChild(6)
-		local hierarchyActions = require("hierarchyactions")
-		hierarchyActions:applyToDescendants(bot, { includeRoot = true }, function(s)
-			s.IsHidden = false
-			s.IsHiddenSelf = false
-			if s.Width == 19 then
-				body.head = s
-				body.hair = s:GetChild(1)
-			end
-			if s.Width == 4 and s.Height == 2 and s.Depth == 3 then
-				if not body.leftArm then
-					body.leftArm = s
-					body.leftSleeve = s:GetChild(2)
-				else
-					body.rightArm = s
-					body.rightSleeve = s:GetChild(2)
-				end
-			end
-			if s.Width == 3 and s.Height == 3 and s.Depth == 4 then
-				if not body.leftLeg then
-					body.leftLeg = s
-					body.leftFoot = s:GetChild(1)
-					body.leftShoe = body.leftFoot:GetChild(1)
-					body.leftPant = s:GetChild(2)
-				else
-					body.rightLeg = s
-					body.rightFoot = s:GetChild(1)
-					body.rightShoe = body.rightFoot:GetChild(1)
-					body.rightPant = s:GetChild(2)
-				end
-			end
-		end)
-		local wearables = { "rightSleeve", "leftSleeve", "hair", "leftPant", "rightPant", "leftShoe", "rightShoe", "shirt" }
-		for _,name in ipairs(wearables) do
-			body[name]:RemoveFromParent()
-			body[name] = nil
-		end
-
-		local api = require("api")
-		local ayrobotWearables = { "jacket", "boots", "pants", "hair" }
-		local nbLoaded = 0
-		api.getAvatar("ayrobot", function(err,res)
-			if err then print (err) end
-			for _,name in ipairs(ayrobotWearables) do
-				Object:Load(res[name], function(obj)
-					if name == "pants" then
-						obj:SetParent(body.rightLeg)
-						obj.Scale = 1.05
-					end
-					if name == "boots" then
-						obj:SetParent(body.rightFoot)
-					end
-					if name == "jacket" then
-						obj:SetParent(body.body)
-						obj.LocalPosition.Z = obj.LocalPosition.Z + 1
-						local left = obj:GetChild(1)
-						local right = left:GetChild(1)
-						left:SetParent(body.rightArm)
-						right:SetParent(body.leftArm)
-						left.LocalPosition = { 0, 0, 0 }
-						right.LocalPosition = { 0, 0, 0 }
-					end
-					if name == "hair" then
-						obj:SetParent(body.head)
-						body.head.LocalRotation = { 0, 0, 0 }
-					end
-					nbLoaded = nbLoaded + 1
-					if nbLoaded >= #ayrobotWearables then
-						local roboteye = Shape(Items.caillef.roboteye)
-						body.head:AddChild(roboteye)
-						roboteye.LocalScale = 1.01
-						roboteye.LocalPosition = { -4.49, 3.5, 4.01 }
-						for i=1,5 do
-							local copy = Shape(bot, {includeChildren=true})
-							copy.botId = i
-							copy.respawnBot = function(self)
-								self.Position = botsSpawnPoints[math.floor(math.random(#botsSpawnPoints))].p + Number3(math.random() * 20 - 10, 20, math.random() * 20 - 10)
-								self.Rotation.Y = math.random() * math.pi * 2
-								self:resetHP()
-							end
-							local t = 0
-							copy.Tick = function(o, dt)
-								if o:GetParent() then
-									t = t + dt
-									o.Rotation.Y = o.Rotation.Y + dt
-									o.Position.Y = o.Position.Y + math.sin(t + i / #botsPool) * 20
-								end
-							end
-							table.insert(botsPool, copy)
-						end						
-					end
-				end)
-			end
-		end)
-	end)
-end
-
-spawnAyrobots = function()
-	math.randomseed(botsSeed or 1)
-	for k,v in ipairs(botsPool) do
-		v:SetParent(World)
-		entityHP:setupEntity(v, 300)
-		v.Physics = PhysicsMode.Static
-		v.CollisionGroups = { 7 }
-		v.CollisionBox.Min = v.CollisionBox.Min + Number3(0,-6,0)
-		v.CollisionBox.Max = v.CollisionBox.Max + Number3(0,10,0)
-		v.Scale = 1
-		v:respawnBot()
-	end
 end
 
 function sfx(name, position, volume)
@@ -220,40 +96,6 @@ local audioSource = function(name, parent, sp, v, r)
 end
 
 Client.OnStart = function()
-	startGameMode = function(mode)
-		if mode then specialGameMode = mode end
-		if specialGameMode == "Lune" then
-			Config.ConstantAcceleration.Y = Config.ConstantAcceleration.Y * 0.25
-			Timer(specialGameModeDuration, function()
-				specialGameMode = nil
-				print("Fin du mode Lune")
-				Config.ConstantAcceleration.Y = -300
-			end)
-			return
-		end
-		if specialGameMode == "Vache" then
-			weapons:setWeapon(Player, 5)
-			Timer(specialGameModeDuration, function()
-				specialGameMode = nil
-				print("Fin du mode Vache")
-				weapons:setWeapon(Player, math.random(4))
-			end)
-		end
-		if specialGameMode == "Ayrobot" then
-			print("Ayr0b0t prend le controle du jeu, defendez Cubzh a tout prix.")
-			spawnAyrobots()
-			weapons:setWeapon(Player,3)
-			Timer(specialGameModeDuration, function()
-				specialGameMode = nil
-				print("Le monde a vaincu l'invasion d'Ayr0b0t")
-				for _,b in ipairs(botsPool) do
-					b:SetParent(nil)
-				end
-			end)
-		end
-	end
-
-	twitchVotes:init()
 	killfeed:init()
     -- Map
     Map.Scale = 12
@@ -305,8 +147,6 @@ Client.OnStart = function()
 			end)
 		end
     end
-
-	loadAyrobots()
 
     -- Player
     Camera:SetModeFirstPerson()
@@ -492,19 +332,6 @@ Client.DidReceiveEvent = function(event)
     if event.action == "chat" then
         print(event.t)
     end
-	if event.action == "votes" then
-		local votes = JSON:Decode(event.votes)
-		twitchVotes:updateVotes(votes)
-	end
-	if event.action == "votesongoing" then
-		local wasOnGoing = ongoing
-		ongoing = event.ongoing
-		if not wasOnGoing and ongoing then
-			twitchVotes:start()
-		elseif wasOnGoing and not ongoing then
-			twitchVotes:stop()
-		end
-	end
     if event.action == "nbKills" then
         local source = Players[math.floor(event.p)]
         if not source then return end
@@ -577,26 +404,6 @@ Server.OnStart = function()
             gsm:serverSetGameState(gsm.States.Lobby)
         end
     end)
-
-	Timer(1, true, function()
-		HTTP:Get("https://aypierretwitch.caillef.com/votesongoing", function(res)
-			local ongoing = JSON:Decode(res.Body).ongoing
-
-			local e = Event()
-			e.action = "votesongoing"
-			e.ongoing = ongoing
-			e:SendTo(Players)
-
-			if not ongoing then return end
-			HTTP:Get("https://aypierretwitch.caillef.com/votes", function(res)
-				local e = Event()
-				e.action = "votes"
-				e.votes = res.Body
-				e:SendTo(Players)
-			end)
-		end)
-	end)
-
 end
 
 Server.OnPlayerJoin = function(p)
@@ -825,11 +632,9 @@ autoSpawnPoints = {
 						obj.Pivot = Number3(10,0,10)
 						obj.Rotation.Y = math.random() * math.pi * 2
                     	obj.Position = Number3(x,y,z) * Map.Scale + Number3(6,0,6)
-					elseif c == botsSpawnPointColor then
-                        table.insert(botsSpawnPoints, {
-                            p = Number3(x,y,z) * Map.Scale
-                        })
-						b:Remove()
+                    elseif c == Color(255,18,0) then
+                        -- deprecated, red blocks must be removed from the item map and remove this condition
+                        b:Remove()
 					end
                 end
             end
@@ -1167,12 +972,7 @@ weaponsMetatable = {
         end,
         damage = function(self, data)
             local source = Players[math.floor(data.s)]
-            local target
-			if data.type and data.type == "bot" then
-				target = botsPool[math.floor(data.t)]
-			else
-				target = Players[math.floor(data.t)]
-			end
+            local target = Players[math.floor(data.t)]
 			if not target then return end
             if target:isDead() then return end
             local dmg = data.dmg * data.mult
@@ -1183,34 +983,21 @@ weaponsMetatable = {
 			end
 
             if target:isDead() then
-				if data.type and data.type == "bot" then
-	                require("explode"):shapes(target)
-					killfeed:addEntry("Ayrobot", source.Username)
-                    target:respawnBot()
-                    if source == Player then
-                        local e = Event()
-	                    e.action = "killed"
-	                    e.t = "bot"
-	                    e.s = source.ID
-	                    e:SendTo(Server)
-                    end
-				else
-	                require("explode"):shapes(target.Body)
-	                target.IsHidden = true
-					killfeed:addEntry(target.Username, source.Username)
-	                if target == Player then
-						target.Motion = { 0, 0, 0 }
-						target.Velocity = { 0, 0, 0 }
-	                    local e = Event()
-	                    e.action = "killed"
-	                    e.t = target.ID
-	                    e.s = source.ID
-	                    e:SendTo(Server)
-	                end
-	                Timer(3, function()
-	                    respawn(target)
-	                end)
-				end
+                require("explode"):shapes(target.Body)
+                target.IsHidden = true
+                killfeed:addEntry(target.Username, source.Username)
+                if target == Player then
+                    target.Motion = { 0, 0, 0 }
+                    target.Velocity = { 0, 0, 0 }
+                    local e = Event()
+                    e.action = "killed"
+                    e.t = target.ID
+                    e.s = source.ID
+                    e:SendTo(Server)
+                end
+                Timer(3, function()
+                    respawn(target)
+                end)
             end
 
             local dmgAs = target.dmgAs[target.dmgAsIndex]
@@ -1852,7 +1639,6 @@ local gameStateManagerMetatable = {
 setmetatable(gameStateManager, gameStateManagerMetatable)
 gsm = gameStateManager
 
-
 killfeed = {}
 killfeedMetatable = {
 	__index = {
@@ -1904,78 +1690,3 @@ killfeedMetatable = {
 	}
 }
 setmetatable(killfeed, killfeedMetatable)
-
-twitchVotes = {}
-twitchVotesMetatable = {
-	__index = {
-		init = function(self)
-			local ui = require("uikit")
-			local bg = ui:createFrame(Color(0,0,0,0.8))
-			local text = ui:createText("Twitch Viewer Votes", Color.White)
-			text:setParent(bg)
-
-			local textOptions = ui:createText("  Vache\n\nAyrobot\n\n   Lune", Color.White)
-			textOptions:setParent(bg)
-
-			local bars = {}
-			local colors = { Color.Red, Color.Blue, Color.Green }
-			for i=1,3 do
-				local bar = ui:createFrame(colors[i])
-				bar:setParent(bg)
-				table.insert(bars, bar)
-				local score = ui:createText("0", Color.White)
-				score:setParent(bar)
-				bar.score = score
-			end
-
-			bg.parentDidResize = function()
-				if not self.votes then return end
-				bg.Width = 400
-				bg.Height = text.Height + textOptions.Height + 15
-				bg.pos = { Screen.Width / 2 - bg.Width / 2, Screen.Height - bg.Height - 5, 0 }
-				text.pos = { bg.Width / 2 - text.Width / 2, bg.Height - text.Height - 5, 0 }
-				textOptions.pos = { 5, text.pos.Y - textOptions.Height - 5, 0 }
-
-				local maxVote = math.max(self.votes[1],math.max(self.votes[2],self.votes[3]))
-				for k,b in ipairs(bars) do
-					b.Width = (self.votes[k] / maxVote) * (bg.Width - 15 - textOptions.Width)
-					b.Height = text.Height
-					b.pos = { textOptions.pos.X + textOptions.Width + 5, textOptions.Height + 5 - b.Height - (k-1) * (textOptions.Height / 3 + 8), 0 }
-					b.score.Text = "("..self.votes[k].." vote"..(self.votes[k] > 1 and "s" or "")..")"
-					b.score.pos = { (bg.Width - 15 - textOptions.Width) - b.score.Width, 0, 0 }
-				end
-			end
-			bg:hide()
-			self.bg = bg
-		end,
-		start = function(self)
-			self.bg:show()
-		end,
-		stop = function(self)
-			local voteResult
-			if self.votes[1] > self.votes[2] and self.votes[1] > self.votes[3] then
-				voteResult = "Vache"
-			elseif self.votes[2] > self.votes[1] and self.votes[2] > self.votes[3] then
-				voteResult = "Ayrobot"
-			else
-				voteResult = "Lune"
-			end
-
-			print("Arret des votes. Le Round "..voteResult.." commence dans 5 secondes...")
-			Timer(5, function()
-				specialGameMode = voteResult
-				botsSeed = self.votes[1] + self.votes[2]
-				startGameMode()
-			end)
-			Timer(specialGameModeDuration + 5, function()
-				self.bg:hide()
-			end)
-		end,
-		updateVotes = function(self, votes)
-			self.votes = { math.floor(votes.vache), math.floor(votes.ayrobot), math.floor(votes.lune) }
-			self.bg:parentDidResize()
-			self.bg:show()
-		end
-	}
-}
-setmetatable(twitchVotes, twitchVotesMetatable)
