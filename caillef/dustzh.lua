@@ -508,7 +508,7 @@ entityHPMetatable = {
                     bg.Height = 20
                     bg.Width = 120
                 end
-                bg.pos = { Screen.Width / 2 - bg.Width / 2, 100, 0 }
+                bg.pos = { Screen.Width / 15 - bg.Width / 2, 200, 0 }
                 bg:update()
             end
             bg:parentDidResize()
