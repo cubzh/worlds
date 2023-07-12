@@ -9,6 +9,7 @@ local SOUND = true
 local ROUND_DURATION = 240
 local SPAWN_BLOCK_COLOR = Color(136,0,252)
 local MAX_NB_KILLS_END_ROUND = 40
+local displayControls =  true -- display controls at start
 
 Config.ConstantAcceleration.Y = -300
 
@@ -151,6 +152,7 @@ Client.OnStart = function()
         uiRoundDuration:_refreshUI()
         uiRoundDuration.bg.LocalPosition.Y = uiRoundScore.bg.LocalPosition.Y + uiRoundScore.bg.Height
     end
+    uiControls:init()
 end
 
 Client.OnPlayerJoin = function(p)
@@ -246,6 +248,10 @@ end
 Client.Action2 = function()
 	if gsm.state == gsm.States.EndRound then return end
     weapons:pressShoot()
+    if displayControls == true then
+        displayControls = false
+        uiControls:hide()
+    end
 end
 
 Client.Action2Release = function()
@@ -257,7 +263,49 @@ Client.Action3Release = function()
 end
 
 
+uiControls = {}
+local uiControlsMetatable = {
+    __index = {
+        _isInit = false,
+        init = function(self)
+            local bg
+            local ui = require("uikit")
+            bg = ui:createFrame(Color(0,0,0,0.5))
+            bg.Width = Screen.Width / 8
+            bg.Height = Screen.Height / 5
+            bg.pos = {Screen.Width / 2 - bg.Width / 2, Screen.Height / 2 - bg.Height / 2, 0}
 
+            local welcomeText = ui:createText("Welcome to Dustzh!", Color.White)
+            welcomeText:setParent(bg)
+            welcomeText.pos = {bg.Width / 2 - welcomeText.Width / 2, bg.Height - (welcomeText.Height + 3), 0}
+
+            local Action1Text = ui:createText("Action1: Jump", Color.White)
+            Action1Text:setParent(bg)
+            Action1Text.pos = {bg.Width / 2 - Action1Text.Width / 2, bg.Height / 2, 0}
+
+            local Action2Text = ui:createText("Action2: Shoot", Color.White)
+            Action2Text:setParent(bg)
+            Action2Text.pos = {bg.Width / 2 - Action2Text.Width / 2, bg.Height / 2 - Action2Text.Height, 0}
+
+            local Action3Text = ui:createText("Action3: Reload", Color.White)
+            Action3Text:setParent(bg)
+            Action3Text.pos = {bg.Width / 2 - Action3Text.Width / 2, bg.Height / 2 - (Action3Text.Height * 2), 0}
+
+            local dismissText = ui:createText("Shoot to dismiss", Color.White)
+            dismissText:setParent(bg)
+            dismissText.pos = {bg.Width / 2 - dismissText.Width / 2, 0, 0}
+
+            self._isInit = true
+            self._bg = bg  -- Stockage de la référence de la frame bg dans _bg
+        end,
+        hide = function(self)
+            if self._bg then
+                self._bg:hide()  -- Utilisation de self._bg pour masquer la frame bg
+            end
+        end
+    }
+}
+setmetatable(uiControls, uiControlsMetatable)
 
 indicatorsPool = {}
 addDamageIndicator = function(shooterPos)
