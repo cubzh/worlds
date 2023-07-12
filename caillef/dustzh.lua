@@ -1125,7 +1125,7 @@ local uiRoundScoreMetatable = {
             local ui = require("uikit")
             if self._isInit then return end
 
-            local bg = ui:createFrame(Color(0,0,0,0.5))
+            local bg = ui:createFrame(Color(0,0,0,0))
             bg:setParent(ui.rootFrame)
             bg.Width = 150
             bg.Height = 500
@@ -1138,7 +1138,7 @@ local uiRoundScoreMetatable = {
             local sortEntries = self:_sortByKillsDesc(self.entries)
             local widerTextWidth = 0
             for k,t in ipairs(sortEntries) do
-                t.Text = t.player.Username.." "..tostring(t.player[self.scoreKey])
+                t.Text = t.player.Username.."   "..tostring(t.player[self.scoreKey])
                 t.LocalPosition = Number3(3, (k-1) * (t.Height + 2), 0)
                 t.LocalPosition.Z = -1
                 if t.Width > widerTextWidth then
@@ -1147,7 +1147,7 @@ local uiRoundScoreMetatable = {
             end
             self.bg.Height = #self.players * (sortEntries[1].Height + 2)
             self.bg.Width = widerTextWidth + 10
-            self.bg.LocalPosition = { Screen.Width - self.bg.Width, Screen.Height / 2 - self.bg.Height / 2, 0 }
+            self.bg.LocalPosition = { 5, Screen.Height - (self.bg.Height + 5), 0 }
         end,
         _sortByKillsDesc = function(self,arr)
             local arrCopy = {}
@@ -1176,7 +1176,8 @@ local uiRoundScoreMetatable = {
                 local nameUI = require("uikit"):createText(v.Username.." 0")
                 nameUI:setParent(self.bg)
                 nameUI.player = v
-                nameUI.color = v == Player and Color.Green or Color.White
+                --nameUI.color = v == Player and Color.Green or Color.White
+                nameUI.color = Color.White
                 table.insert(self.entries, nameUI)
             end
             self:_refreshUI()
