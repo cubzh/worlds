@@ -708,12 +708,19 @@ weaponsMetatable = {
             self.hitMarker = hitMarker
 
             local ammoCount = ui:createText("20/20", Color.White, "big")
+            local weaponName = ui:createText("weaponsName", Color.White)
             self.ammoCountText = ammoCount
+            self.weaponNameText = weaponName
 			ammoCount.parentDidResize = function(self)
                 self.pos = { Screen.Width * 0.5 - self.Width * 0.5, 100 - self.Height - 10, 0 }
             end
+            weaponName.parentDidResize = function(self)
+                self.pos = { Screen.Width / 25 - weaponName.Width / 1.75, Screen.Height / 3, 0 }
+            end
             ammoCount:parentDidResize()
+            weaponName:parentDidResize()
             self:updateAmmoUI()
+            self:updateNameUI()
 
 			self.templates = {}
         end,
@@ -721,6 +728,11 @@ weaponsMetatable = {
             if self.ammo == nil then return end
             self.ammoCountText.Text = math.floor(self.ammo).."/"..self.maxAmmo
 			self.ammoCountText.pos = { Screen.Width * 0.5 - self.ammoCountText.Width * 0.5, 100 - self.ammoCountText.Height - 10, 0 }
+        end,
+        updateNameUI = function(self)
+            if self.weaponName == nil then return end
+            self.weaponNameText.Text = self.weaponName
+            self.weaponNameText.pos = { Screen.Width / 25 - self.weaponNameText.Width / 1.75, Screen.Height / 3, 0 }
         end,
 		toggleUI = function(self, show)
 			if show == nil then
@@ -1015,7 +1027,9 @@ weaponsMetatable = {
                 self.currentWeapon = weaponInfo
                 self.maxAmmo = weaponInfo.ammo
                 self.ammo = weaponInfo.ammo
+                self.weaponName = weaponInfo.name
                 self:updateAmmoUI()
+                self:updateNameUI()
                 multi:playerAction("changeWeapon", { id = id })
             end
 			p.weaponId = id
