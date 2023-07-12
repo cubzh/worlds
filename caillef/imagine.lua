@@ -72,11 +72,14 @@ local menu = {
 			menu:defaultActions(buttons)
 		end
 		-- end
+		local maxwidth = 0
 		for i, b in ipairs(buttons) do
 			b:setParent(root)
 			b.impact = impact
 			b.pos.Y = -i * b.Height
+			maxwidth = math.max(maxwidth, b.content.Width)
 		end
+		for i, b in ipairs(buttons) do b.Width = (maxwidth + 16) end
 		return root
 	end,
 	hide = function(menu)
@@ -140,6 +143,8 @@ function spawnImage(btn)
 end
 
 -- YASSIFICATION
+local GEN_GROUP = 5
+
 faceNormals = {
 	[Face.Back] = Number3(0.0, -1.0, 0.0), [Face.Bottom] = Number3(0.0, 0.0, -1.0), [Face.Front] = Number3(0.0, 1.0, 0.0),
 	[Face.Left] = Number3(-1.0, 0.0, 0.0), [Face.Right] = Number3(1.0, 0.0, 0.0), [Face.Top] = Number3(0.0, 0.0, 1.0)
@@ -259,7 +264,7 @@ Client.OnStart = function()
 	ui = require "uikit"
 	ui:init()
 	-- non-modal instructions
-	local text = ui:createText(" 🎥 Drag to move camera,\n   ☝️ Click to bring up CREATOR MENU!\n     👁 Click on an image for info.", Color(1.0,1.0,1.0))
+	local text = ui:createText(" 🎥 Drag to move camera,\n   ☝️ Click to bring up CREATOR MENU!\n     🔎 Click on an image for info.", Color(1.0,1.0,1.0))
 	text.object.BackgroundColor = Color(0,0,0,128)
 	text.object.Padding = 8
 	text.parentDidResize = function() text.pos.Y = 8 end
@@ -295,7 +300,7 @@ Pointer.Click = function(pe)
 		menu:hide()
 	-- hijack ui:pointerDown logic
 	else
-		menu:init(pe.X, pe.Y, pe.Position, pe.Direction, pe:CastRay())
+		menu:init(pe.X, pe.Y, pe.Position, pe.Direction, pe:CastRay(Map.CollisionGroups + {GEN_GROUP}))
 	end
 end
 
@@ -427,7 +432,7 @@ Client.DidReceiveEvent = function(e)
 
 			Timer(1, function()
 				s.Physics = PhysicsMode.TriggerPerBlock
-				s.CollisionGroups = {}
+				s.CollisionGroups = {GEN_GROUP}
 			end)
 			-- s.Scale = 0.7
 			sfx("waterdrop_2", {Position = pos})
