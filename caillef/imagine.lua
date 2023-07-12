@@ -63,9 +63,10 @@ local menu = {
 	create = function(menu, referrer)	-- create menu with cached init info
 		menu.visible = true
 		local root = ui:createNode()
-		root.pos = Number3(Screen.Width * menu.x, Screen.Height * menu.y, 0)
+		--root.pos = Number3(Screen.Width * menu.x, Screen.Height * menu.y, 0)
 		menu:animate(root)
 		menu.dlg = root
+		root.object.Tick = function() local p2 = Camera:WorldToScreen(menu.pos) root.pos = Number3(p2.X*Screen.Width,p2.Y*Screen.Height,0) end
 		-- populate:
 		local buttons = {}
 		if referrer == nil then
@@ -103,7 +104,8 @@ local menu = {
 		input:setParent(root)
 		input:focus()
 		input.onSubmit = referrer.send
-		root.pos = Number3(Screen.Width * menu.x - (input.Width * 0.5), (Screen.Height * menu.y) + input.Height, 0)
+		--root.pos = Number3(Screen.Width * menu.x - (input.Width * 0.5), (Screen.Height * menu.y) + input.Height, 0)
+		root.object.Tick = function() local p2 = Camera:WorldToScreen(menu.pos) root.pos = Number3(p2.X*Screen.Width-(input.Width*0.5),(p2.Y*Screen.Height)+input.Height,0) end
 		local send = ui:createButton("✅", {textSize="big"})
 		send:setParent(root)
 		send.onRelease = function() referrer.send(input) end
@@ -320,7 +322,7 @@ Client.OnPlayerJoin = function(p)
 end
 
 Client.OnPlayerLeave = function(p)
-	multi:removePlayer(p)
+	--multi:removePlayer(p)
 end
 
 Client.Tick = function(dt)
