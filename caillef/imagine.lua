@@ -281,22 +281,6 @@ end
 
 -- UI CODE
 
-Pointer.Down = function(pe)
-end
-
-Pointer.Up = function(pe)
-end
-
-Pointer.Drag2Begin = function(pe)
-end
-
-Pointer.Drag2 = function(pe)
-end
-
-Screen.DidResize = function(w,h)
-	ui:fitScreen()
-end
-
 Pointer.Click = function(pe)
 	if menu.visible then
 		menu:hide()
@@ -319,10 +303,6 @@ Client.OnPlayerJoin = function(p)
 	end
 	--multi:initPlayer(p)
 	p.CollidesWithGroups = Map.CollisionGroups
-end
-
-Client.OnPlayerLeave = function(p)
-	--multi:removePlayer(p)
 end
 
 Client.Tick = function(dt)
