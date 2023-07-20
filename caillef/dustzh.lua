@@ -1,7 +1,7 @@
 
 Config = {
     Map = "caillef.quakzh_dust2",
-    Items = { "caillef.wooden_crate", "caillef.barrels", "xavier.damage_indicator", "caillef.roboteye" }
+    Items = { "caillef.wooden_crate", "caillef.barrels", "xavier.damage_indicator", "caillef.roboteye", "k40s.gun_bullet" }
 }
 
 local DEBUG = false -- starts with a single player
@@ -296,11 +296,11 @@ local uiControlsMetatable = {
             dismissText.pos = {bg.Width / 2 - dismissText.Width / 2, 0, 0}
 
             self._isInit = true
-            self._bg = bg  -- Stockage de la référence de la frame bg dans _bg
+            self._bg = bg
         end,
         hide = function(self)
             if self._bg then
-                self._bg:hide()  -- Utilisation de self._bg pour masquer la frame bg
+                self._bg:hide()
             end
         end
     }
@@ -640,6 +640,7 @@ autoSpawnPoints = {
     end
 }
 
+local displayedWeapon = {}
 weapons = {}
 weaponsMetatable = {
     __index = {
@@ -707,17 +708,12 @@ weaponsMetatable = {
             hitMarker:hide()
             self.hitMarker = hitMarker
 
-            local ammoCount = ui:createText("20/20", Color.White, "big")
-            local weaponName = ui:createText("weaponsName", Color.White)
+            local weaponName = ui:createText("weaponsName", Color.Black)
             self.ammoCountText = ammoCount
             self.weaponNameText = weaponName
-			ammoCount.parentDidResize = function(self)
-                self.pos = { Screen.Width * 0.5 - self.Width * 0.5, 100 - self.Height - 10, 0 }
-            end
             weaponName.parentDidResize = function(self)
                 self.pos = { Screen.Width / 25 - weaponName.Width / 1.75, Screen.Height / 3, 0 }
             end
-            ammoCount:parentDidResize()
             weaponName:parentDidResize()
             self:updateAmmoUI()
             self:updateNameUI()
@@ -726,8 +722,7 @@ weaponsMetatable = {
         end,
         updateAmmoUI = function(self)
             if self.ammo == nil then return end
-            self.ammoCountText.Text = math.floor(self.ammo).."/"..self.maxAmmo
-			self.ammoCountText.pos = { Screen.Width * 0.5 - self.ammoCountText.Width * 0.5, 100 - self.ammoCountText.Height - 10, 0 }
+            addAmmoIndication(math.floor(self.ammo))
         end,
         updateNameUI = function(self)
             if self.weaponName == nil then return end
@@ -1037,6 +1032,18 @@ weaponsMetatable = {
 				local weapon =  Shape(self.templates[weaponInfo.item])
 				weapon.Pivot = self.templates[weaponInfo.item].Pivot
 				self:_setWeapon(p, weapon, weaponInfo, forceNotFPS)
+
+                -- display the weapon next to the weapon name
+                for _, i in ipairs(displayedWeapon) do
+                    Camera:RemoveChild(i)
+                end
+                displayedWeapon = {}
+                local displayedWeapon = Shape(self.templates[weaponInfo.item])
+                displayedWeapon.Scale = 0.1
+                Camera:AddChild(displayedWeapon)
+                displayedWeapon.Physics = PhysicsMode.Disabled
+                displayedWeapon.LocalPosition = { -18.5, -3.5, 20 }
+                table.insert(displayedWeapon, displayedWeapon)
 				return
 			end
             Object:Load(weaponInfo.item, function(weapon)
@@ -1694,3 +1701,36 @@ killfeedMetatable = {
 	}
 }
 setmetatable(killfeed, killfeedMetatable)
+
+-- display ammo on the left of the screen
+local ammoIndicators = {}
+local maxAmmoPerRow = 12
+local rowSpacing = 0.5
+
+addAmmoIndication = function(numberAmmo)
+    for _, indicator in ipairs(ammoIndicators) do
+        Camera:RemoveChild(indicator)
+    end
+
+    ammoIndicators = {}
+
+    local numRows = math.ceil(numberAmmo / maxAmmoPerRow)
+
+    for row = 1, numRows do
+        local numAmmoThisRow = math.min(maxAmmoPerRow, numberAmmo - (row - 1) * maxAmmoPerRow)
+
+        for i = 1, numAmmoThisRow do
+            local ammoIndicator = Shape(Items.k40s.gun_bullet)
+            ammoIndicator.Scale = 0.02
+            Camera:AddChild(ammoIndicator)
+            ammoIndicator.Physics = PhysicsMode.Disabled
+
+            local xOffset = ((i - 1) / 2) * 1.01 - 20.9
+            local zOffset = (row - 1) * rowSpacing
+
+            ammoIndicator.LocalPosition = Number3(xOffset, -4.5 - zOffset, 20)
+
+            table.insert(ammoIndicators, ammoIndicator)
+        end
+    end
+end
