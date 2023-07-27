@@ -711,8 +711,8 @@ weaponsMetatable = {
             local weaponName = ui:createText("weaponsName", Color.Black)
             self.ammoCountText = ammoCount
             self.weaponNameText = weaponName
-            weaponName.parentDidResize = function(self)
-                self.pos = { Screen.Width / 25 - weaponName.Width / 1.75, Screen.Height / 3, 0 }
+            weaponName.parentDidResize = function()
+                self.weaponNameText.pos = { 5, Screen.Height / 3, 0 }
             end
             weaponName:parentDidResize()
             self:updateAmmoUI()
@@ -727,7 +727,6 @@ weaponsMetatable = {
         updateNameUI = function(self)
             if self.weaponName == nil then return end
             self.weaponNameText.Text = self.weaponName
-            self.weaponNameText.pos = { Screen.Width / 25 - self.weaponNameText.Width / 1.75, Screen.Height / 3, 0 }
         end,
 		toggleUI = function(self, show)
 			if show == nil then
@@ -850,7 +849,7 @@ weaponsMetatable = {
             Timer(2, function()
             	self.reloading = false
             	self.ammo = self.maxAmmo
-            	self:updateAmmoUI()                            
+            	self:updateAmmoUI()
             end)
 		end,
         _tick = function(self, dt)
@@ -1042,8 +1041,11 @@ weaponsMetatable = {
                 displayedWeapon.Scale = 0.1
                 Camera:AddChild(displayedWeapon)
                 displayedWeapon.Physics = PhysicsMode.Disabled
-                displayedWeapon.LocalPosition = { -18.5, -3.5, 20 }
                 table.insert(displayedWeapon, displayedWeapon)
+                displayedWeapon.parentDidResize = function()
+                    displayedWeapon.LocalPosition = { -18.5, -3.5, 20 }
+                end
+                displayedWeapon.parentDidResize()
 				return
 			end
             Object:Load(weaponInfo.item, function(weapon)
