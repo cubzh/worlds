@@ -1175,7 +1175,10 @@ local uiRoundScoreMetatable = {
             end
             self.bg.Height = #self.players * (sortEntries[1].Height + 2)
             self.bg.Width = widerTextWidth + 10
-            self.bg.LocalPosition = { 5, Screen.Height - (self.bg.Height + 5), 0 }
+            self.bg.parentDidResize = function()
+                self.bg.LocalPosition = { 5, Screen.Height - (self.bg.Height + 5), 0 }
+            end
+            self.bg.parentDidResize()
         end,
         _sortByKillsDesc = function(self,arr)
             local arrCopy = {}
