@@ -152,7 +152,6 @@ Client.OnStart = function()
         uiRoundDuration:_refreshUI()
         uiRoundDuration.bg.LocalPosition.Y = uiRoundScore.bg.LocalPosition.Y + uiRoundScore.bg.Height
     end
-    uiControls:init()
 end
 
 Client.OnPlayerJoin = function(p)
@@ -172,6 +171,7 @@ Client.OnPlayerJoin = function(p)
 			bg:remove()
 		end
 	end)
+    instructions:display()
 end
 
 Client.OnPlayerLeave = function(p)
@@ -250,7 +250,7 @@ Client.Action2 = function()
     weapons:pressShoot()
     if displayControls == true then
         displayControls = false
-        uiControls:hide()
+        instructions:hide()
     end
 end
 
@@ -263,49 +263,54 @@ Client.Action3Release = function()
 end
 
 
-uiControls = {}
-local uiControlsMetatable = {
-    __index = {
-        _isInit = false,
-        init = function(self)
-            local bg
-            local ui = require("uikit")
-            bg = ui:createFrame(Color(0,0,0,0.5))
-            bg.Width = Screen.Width / 8
-            bg.Height = Screen.Height / 5
-            bg.pos = {Screen.Width / 2 - bg.Width / 2, Screen.Height / 2 - bg.Height / 2, 0}
-
-            local welcomeText = ui:createText("Welcome to Dustzh!", Color.White)
-            welcomeText:setParent(bg)
-            welcomeText.pos = {bg.Width / 2 - welcomeText.Width / 2, bg.Height - (welcomeText.Height + 3), 0}
-
-            local Action1Text = ui:createText("Action1: Jump", Color.White)
-            Action1Text:setParent(bg)
-            Action1Text.pos = {bg.Width / 2 - Action1Text.Width / 2, bg.Height / 2, 0}
-
-            local Action2Text = ui:createText("Action2: Shoot", Color.White)
-            Action2Text:setParent(bg)
-            Action2Text.pos = {bg.Width / 2 - Action2Text.Width / 2, bg.Height / 2 - Action2Text.Height, 0}
-
-            local Action3Text = ui:createText("Action3: Reload", Color.White)
-            Action3Text:setParent(bg)
-            Action3Text.pos = {bg.Width / 2 - Action3Text.Width / 2, bg.Height / 2 - (Action3Text.Height * 2), 0}
-
-            local dismissText = ui:createText("Shoot to dismiss", Color.White)
-            dismissText:setParent(bg)
-            dismissText.pos = {bg.Width / 2 - dismissText.Width / 2, 0, 0}
-
-            self._isInit = true
-            self._bg = bg
-        end,
-        hide = function(self)
-            if self._bg then
-                self._bg:hide()
-            end
-        end
-    }
+instructions = {
+    bg = nil
 }
-setmetatable(uiControls, uiControlsMetatable)
+
+instructions.display = function(self)
+    if self.bg == nil then
+        local ui = require("uikit")
+        local bg = ui:createFrame(Color(0,0,0,0.5))
+
+        local welcomeText = ui:createText("Welcome to Dustzh!", Color.White)
+        welcomeText:setParent(bg)
+
+        local Action1Text = ui:createText("Action1: Jump", Color.White)
+        Action1Text:setParent(bg)
+
+        local Action2Text = ui:createText("Action2: Shoot", Color.White)
+        Action2Text:setParent(bg)
+
+        local Action3Text = ui:createText("Action3: Reload", Color.White)
+        Action3Text:setParent(bg)
+
+        local dismissText = ui:createText("(shoot to dismiss)", Color.White, "small")
+        dismissText:setParent(bg)
+
+        bg.parentDidResize = function(self)
+            local padding = 4
+            local maxWidth = math.max(welcomeText.Width, Action1Text.Width, Action2Text.Width, Action3Text.Width, dismissText.Width)
+            local height = welcomeText.Height + padding + Action1Text.Height + padding + Action2Text.Height + padding + Action3Text.Height + padding + dismissText.Height
+
+            self.Width = maxWidth + padding * 2
+            self.Height = height + padding * 2
+            self.pos = {Screen.Width * 0.5 - self.Width * 0.5, Screen.Height * 0.5 - self.Height * 0.5, 0}
+
+            welcomeText.pos = {self.Width * 0.5 - welcomeText.Width * 0.5, self.Height - padding - welcomeText.Height, 0}
+            Action1Text.pos = {self.Width * 0.5 - Action1Text.Width * 0.5,  welcomeText.pos.Y - padding - Action1Text.Height, 0}
+            Action2Text.pos = {self.Width * 0.5 - Action2Text.Width * 0.5,  Action1Text.pos.Y - padding - Action2Text.Height, 0}
+            Action3Text.pos = {self.Width * 0.5 - Action3Text.Width * 0.5,  Action2Text.pos.Y - padding - Action3Text.Height, 0}
+            dismissText.pos = {self.Width * 0.5 - dismissText.Width * 0.5,  Action3Text.pos.Y - padding - dismissText.Height, 0}
+        end
+        bg:parentDidResize()
+        self.bg = bg
+    end
+    self.bg:show()
+end
+
+instructions.hide = function(self)
+    if self.bg ~= nil then self.bg:hide() end
+end
 
 indicatorsPool = {}
 addDamageIndicator = function(shooterPos)
