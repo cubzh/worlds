@@ -513,7 +513,8 @@ entityHPMetatable = {
                     bg.Height = 20
                     bg.Width = 120
                 end
-                bg.pos = { Screen.Width / 15 - bg.Width / 2, 200, 0 }
+                local pos = Number3(10, Screen.Height / 3 + bg.Height, 0)
+                bg.pos = pos
                 bg:update()
             end
             bg:parentDidResize()
@@ -717,7 +718,7 @@ weaponsMetatable = {
             self.ammoCountText = ammoCount
             self.weaponNameText = weaponName
             weaponName.parentDidResize = function()
-                self.weaponNameText.pos = { 5, Screen.Height / 3, 0 }
+                self.weaponNameText.pos = { 10, Screen.Height / 3, 0 }
             end
             weaponName:parentDidResize()
             self:updateAmmoUI()
