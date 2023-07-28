@@ -718,7 +718,7 @@ weaponsMetatable = {
             self.ammoCountText = ammoCount
             self.weaponNameText = weaponName
             weaponName.parentDidResize = function()
-                self.weaponNameText.pos = { 10, Screen.Height / 3, 0 }
+                self.weaponNameText.pos = { 30, Screen.Height / 3, 0 }
             end
             weaponName:parentDidResize()
             self:updateAmmoUI()
@@ -1042,16 +1042,15 @@ weaponsMetatable = {
                 for _, i in ipairs(displayedWeapon) do
                     Camera:RemoveChild(i)
                 end
+
                 displayedWeapon = {}
-                local displayedWeapon = Shape(self.templates[weaponInfo.item])
-                displayedWeapon.Scale = 0.1
-                Camera:AddChild(displayedWeapon)
-                displayedWeapon.Physics = PhysicsMode.Disabled
-                table.insert(displayedWeapon, displayedWeapon)
+                ui = require("uikit")
+                local displayedWeapon = ui:createShape(Shape(self.templates[weaponInfo.item]))
                 displayedWeapon.parentDidResize = function()
-                    displayedWeapon.LocalPosition = { -18.5, -3.5, 20 }
+                    displayedWeapon.LocalPosition = { 160, Screen.Height / 3, 0 }
+                    displayedWeapon.LocalRotation.Y = 180
                 end
-                displayedWeapon.parentDidResize()
+                displayedWeapon:parentDidResize()
 				return
 			end
             Object:Load(weaponInfo.item, function(weapon)
