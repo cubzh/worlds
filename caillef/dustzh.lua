@@ -1718,28 +1718,28 @@ local maxAmmoPerRow = 12
 local rowSpacing = 0.5
 
 addAmmoIndication = function(numberAmmo)
+    -- Clear previously displayed ammo indicators
     for _, indicator in ipairs(ammoIndicators) do
-        Camera:RemoveChild(indicator)
+        indicator:hide()
     end
-
     ammoIndicators = {}
 
+    ui = require("uikit")
     local numRows = math.ceil(numberAmmo / maxAmmoPerRow)
 
     for row = 1, numRows do
         local numAmmoThisRow = math.min(maxAmmoPerRow, numberAmmo - (row - 1) * maxAmmoPerRow)
 
         for i = 1, numAmmoThisRow do
-            local ammoIndicator = Shape(Items.k40s.gun_bullet)
-            ammoIndicator.Scale = 0.02
-            Camera:AddChild(ammoIndicator)
-            ammoIndicator.Physics = PhysicsMode.Disabled
+            local ammoIndicator = ui:createShape(Shape(Items.k40s.gun_bullet))
+            ammoIndicator.Scale = 0.5
+            
 
-            local xOffset = ((i - 1) / 2) * 1.01 - 20.9
+            local xOffset = ((i - 1) / 2) * 200 + 20
             local zOffset = (row - 1) * rowSpacing
 
-            ammoIndicator.LocalPosition = Number3(xOffset, -4.5 - zOffset, 20)
-
+            ammoIndicator.LocalPosition = Number3(xOffset, Screen.Height / 4 - zOffset, 0)
+            ammoIndicator.Scale = 0.5
             table.insert(ammoIndicators, ammoIndicator)
         end
     end
