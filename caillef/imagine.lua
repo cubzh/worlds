@@ -1,323 +1,83 @@
 Config = {
     Map = "aduermael.hills",
-	Items = { "caillef.shop" }
+	Items = {}
 }
 
--- UI FUNCTIONS
-
--- compact function to create and draw from a noun pool generated from a GPT thread.
-function querySuggestionPool(textObject)
-	if nounPool == nil then
-		nounAwaiter = textObject
-		nounPool = {}
-		local chat = AI:CreateChat("You are a tool whose duty is to provide nothing but a list with the requested data separated with newlines.")
-		chat:Say("Please give me 30 words containing common english nouns or funny concepts for physical objects.", function(err, msg)
-			if err ~= nil then error(err)
-			else
-				for word in string.gmatch(msg, "[%a%-%']+") do
-					table.insert(nounPool, word)
-				end
-				if nounAwaiter._setText ~= nil then
-				nounAwaiter:_setText(nounPool[math.random(#nounPool)]) end
-			end
-		end)
-	end 
-	if #nounPool == 0 then	-- replace receiver when waiting for pool to init...
-		nounAwaiter = textObject
-	else	-- or we're completely done and the awaiter gets changed instantly.
-		textObject:_setText(nounPool[math.random(#nounPool)])
-	end
-end
-
--- MENU
-local menu = {
-	dlg = nil, x = 0, y = 0, impact = nil, pos = nil, input = nil, visible = false,
-	animate = function(self, node)
-		local anim = ease:outElastic(node.object, 0.5)
-		node.object.LocalScale = Number3(1, 0, 0)
-		anim.LocalScale = Number3(1, 1, 1)
-	end,
-	sfxValid = function(self)
-		sfx("modal_3", {Spatialized=false, Pitch=2.0})
-	end,
-	init = function(menu, x, y, pos, dir, impact)
-		menu.x = x menu.y = y menu.impact = impact
-		if impact ~= nil then
-			menu.pos = pos + (dir * impact.Distance)
-		end
-		menu:create()	-- no referrer on init
-		gameHintText:setParent(nil)	-- specific to this game
-	end,
-	defaultActions = function(menu, btns)	-- default click actions
-		-- specific to this game
-		if menu.impact ~= nil and menu.impact.Object.userInput ~= nil then
-			menu.selected = menu.impact.Object
-			menu.selected.PrivateDrawMode = 2
-			button(btns, "👁 \""..menu.impact.Object.userInput.."\"")
-			button(btns, "by "..menu.impact.Object.user)
-		else
-			spawnDisc(menu.impact, menu.pos)	-- specific to this game
-			button(btns, "➕ Create Image", spawnImage)
-		end
-	end,
-	create = function(menu, referrer)	-- create menu with cached init info
-		menu.visible = true
-		local root = ui:createNode()
-		--root.pos = Number3(Screen.Width * menu.x, Screen.Height * menu.y, 0)
-		menu:animate(root)
-		menu.dlg = root
-		root.object.Tick = function() local p2 = Camera:WorldToScreen(menu.pos) root.pos = Number3(p2.X*Screen.Width,p2.Y*Screen.Height,0) end
-		-- populate:
-		local buttons = {}
-		if referrer == nil then
-			menu:defaultActions(buttons)
-		end
-		-- end
-		local maxwidth = 0
-		for i, b in ipairs(buttons) do
-			b:setParent(root)
-			b.impact = impact
-			b.pos.Y = -i * b.Height
-			maxwidth = math.max(maxwidth, b.content.Width)
-		end
-		for i, b in ipairs(buttons) do b.Width = (maxwidth + 16) end
-		return root
-	end,
-	hide = function(menu)
-		menu.visible = false
-		if menu.dlg ~= nil then
-			if menu.input ~= nil then menu.input.object.Tick = nil end	-- TEMP BUG WORKAROUND :)
-			menu.input = nil
-			menu.dlg:remove()
-			menu.dlg = nil
-		end
-		-- specific to this game
-		if menu.selected ~= nil then menu.selected.PrivateDrawMode = 0 menu.selected = nil end
-		deleteDisc()	
-	end,
-	createInput = function(menu, referrer)	-- input needed with referrer
-		menu:hide()
-		menu.visible = true
-		local root = ui:createNode()
-		local input = ui:createTextInput(nil, referrer.placeholder, "big")
-		if referrer.useAI then querySuggestionPool(input.placeholder) end
-		input:setParent(root)
-		input:focus()
-		input.onSubmit = referrer.send
-		--root.pos = Number3(Screen.Width * menu.x - (input.Width * 0.5), (Screen.Height * menu.y) + input.Height, 0)
-		root.object.Tick = function() local p2 = Camera:WorldToScreen(menu.pos) root.pos = Number3(p2.X*Screen.Width-(input.Width*0.5),(p2.Y*Screen.Height)+input.Height,0) end
-		local send = ui:createButton("✅", {textSize="big"})
-		send:setParent(root)
-		send.onRelease = function() referrer.send(input) end
-		if referrer.send == nil then send.onRelease = (function() menu:hide() end) end
-		menu:animate(root)
-		menu.input = input
-		menu.dlg = root
-		input.object.Tick = function()
-			send.pos = Number3(input.pos.X + input.Width, input.pos.Y, 0)
-			input.Width = math.max(280, input.string.Width) + 16
-		end
-		if referrer.disc then spawnDisc(menu.impact, menu.pos) end	-- specific to this game
-	end
-}
-
-function button(tbl, text, action)
-	local btn = ui:createButton(text, {textSize="big"}) btn.Width = 300
-	if action == nil then btn.onRelease = function(self) menu:hide() end
-	else btn.onRelease = action end
-	table.insert(tbl, btn)
-	return btn
-end
-
--- ACTION FUNCTIONS
-function spawnImage(btn)
-	local impact = btn.impact
-	menu:createInput({
-		placeholder = "✨ something ✨",
-		useAI = true,
-		disc = true,
-		send = function(self)
-			imageQuery(self.Text, menu.impact, menu.pos)
-			menu:hide()
-			menu:sfxValid()
-		end
-	})
-end
-
--- YASSIFICATION
-local GEN_GROUP = 5
+-- CONSTANTS
+local PADDING = 8 -- used for UI elements
+local POINTER_OFFSET = 20
+local GENERATED_ITEM_COLLISION_GROUP = 5
 
 faceNormals = {
-	[Face.Back] = Number3(0.0, -1.0, 0.0), [Face.Bottom] = Number3(0.0, 0.0, -1.0), [Face.Front] = Number3(0.0, 1.0, 0.0),
-	[Face.Left] = Number3(-1.0, 0.0, 0.0), [Face.Right] = Number3(1.0, 0.0, 0.0), [Face.Top] = Number3(0.0, 0.0, 1.0)
+	[Face.Back] = Number3(0,0,-1), [Face.Bottom] = Number3(0,-1,0), [Face.Front] = Number3(0,0,1),
+	[Face.Left] = Number3(-1,0,0), [Face.Right] = Number3(1,0,0), [Face.Top] = Number3(0,1,0)
 }
 
-function spawnDisc(impact, pos)
-	if impact == nil then return end
-	_disc = MutableShape()
-	_disc:AddBlock(Color.White, 0, 0, 0)
-	_disc.LocalScale = Number3(0, 0, 20)
-	_disc.Pivot = Number3(0.5,0.5,0.5)
-	_disc.LocalPosition = pos
-	_disc.Up = faceNormals[impact.FaceTouched] or Number3(0, 1, 0)
-	_disc.Tick = function(o, dt) o:RotateLocal(o.Backward, dt) end
-	_disc:SetParent(World)
-	local anim = ease:outSine(_disc, 0.2)
-	anim.LocalScale = Number3(8, 8, 1)
-end
-
-function deleteDisc()
-	if _disc ~= nil then _disc:SetParent(nil) end
-	_disc = nil
-end
-
-apiURL = "https://api.voxdream.art"
-
 Client.OnStart = function()
-    addPlayerOnStart = false
 
 	multi = require "multi"
-	amb = require "ambience"
 
-	Fog.Near = 150
-	Fog.Far = 300
-
-	--[[local m = amb.noon:copy()
-
-	m.sky.skyColor = Color(29, 118, 213)
-	m.sky.horizonColor = Color(95, 168, 236)
-	m.sky.abyssColor = Color(31, 81, 143)
-	m.ambient.color = Color(80,120,100)
-	amb:set(m)]]
+	ambience = require "ambience"
+	ambience:set(ambience.noon)
 
 	Clouds.Altitude = 100
 
-	sun = Light()
-    sun.On = true
-	sun.CastsShadows = true
-	sun.Color = Color(99,75,0)
-	sun.Type = LightType.Directional
-	World:AddChild(sun)
-	sun.Rotation = {math.pi * 0.3, math.pi * 0.5, 0}
+	gens = {} -- generated items
 
-	gens = {}
-
-    -- Defines a function to drop
-    -- the player above the map.
-    dropPlayer = function()
-        Player.Position = Number3(Map.Width * 0.5, Map.Height + 10, Map.Depth * 0.5) * Map.Scale
-        Player.Rotation = { 0, 0, 0 }
-        Player.Velocity = { 0, 0, 0 }
-    end
-
-    if addPlayerOnStart then
-		World:AddChild(Player)
-	    dropPlayer()
-	end
-
-	AudioListener:SetParent(Player.Head)
-
-	makeBubble = function(e)
-		local bubble = MutableShape()
-		bubble:AddBlock(Color.White, 0, 0, 0)
-		bubble:SetParent(World)
-		bubble.Pivot = Number3(0.5,0,0.5)
-		bubble.Position = e.pos
-		bubble.Rotation.Y = e.rotY
-		bubble.eid = e.id
-
-		bubble.Tick = function(o, dt)
-			o.Scale.X = o.Scale.X + dt * 2
-			o.Scale.Y = o.Scale.Y + dt * 2
-			if o.text ~= nil then
-				o.text.Position = o.Position
-				o.text.Position.Y = o.Position.Y + o.Height * o.Scale.Y + 1
-			end
-		end
-
-		local t = Text()
-		t:SetParent(World)
-		t.Rotation.Y = e.rotY
-		t.Text = e.m
-		t.Type = TextType.World
-		t.IsUnlit = true
-		t.Tail = true
-		t.Anchor = { 0.5, 0 }
-		t.Position.Y = bubble.Position.Y + bubble.Height * bubble.Scale.Y + 1
-		bubble.text = t
-
-		-- remove after 15 seconds without response
-		Timer(15, function()
-			if bubble then
-				gens[bubble.eid] = nil
-				bubble.Tick = nil
-				if bubble.text then bubble.text:RemoveFromParent() end
-				bubble:RemoveFromParent()
-			end
-		end)
-
-		gens[e.id] = bubble
-	end
-
-	-- ADDITIONS:
-
+	-- MODULES
 	sfx = require "sfx"
 	ease = require "ease"
 	ui = require "uikit"
-	ui:init()
-	-- non-modal instructions
-	local text = ui:createText(" 🎥 Drag to move camera,\n   ☝️ Click to bring up CREATOR MENU!\n     🔎 Click on an image for info.", Color(1.0,1.0,1.0))
-	text.object.BackgroundColor = Color(0,0,0,128)
-	text.object.Padding = 8
-	text.parentDidResize = function() text.pos.Y = 8 end
-	-- intrusive hint
-	gameHintText = ui:createText("Start by pressing a block!", Color(1.0,1.0,1.0), "big")
-	gameHintText.parentDidResize = function() gameHintText.pos.X = (Screen.Width / 2) gameHintText.pos.Y = Screen.Height - (Screen.Height / 4) end
-	gameHintText.object.Anchor = { 0.5, 0.5 }
-	gameHintText.object.time = 0 gameHintText.object.Tick = 
-		function(o, dt) if (o.time % 0.4) <= 0.2 then o.Color = Color(0.0, 0.8, 0.6) else o.Color = Color(1.0, 1.0, 1.0) end o.time = o.time + dt end
-	LocalEvent:Send(LocalEvent.Name.ScreenDidResize, Screen.Width, Screen.Height)
-end
+	controls = require "controls"
+	controls:setButtonIcon("action1", "⬆️")
+	
+	showInstructions()
+	showWelcomeHint()
 
--- UI CODE
+	Pointer:Show()
+end
 
 Pointer.Click = function(pe)
-	if menu.visible then
-		menu:hide()
-	-- hijack ui:pointerDown logic
-	else
-		menu:init(pe.X, pe.Y, pe.Position, pe.Direction, pe:CastRay(Map.CollisionGroups + {GEN_GROUP}))
-	end
+	hideWelcomeHint()
+	hideInstructions()
+	showMenu(pe)
 end
 
--- CLIENT CODE
-
-Client.OnSubmit = function(what)
-	print(what)
-end
+-- Temporary fix
+-- On mobile, Pointer.Click doesn't work if Pointer.Up is nil
+-- (will be fixed in next update)
+Pointer.Up = function(pe) end
 
 Client.OnPlayerJoin = function(p)
-    if not addPlayerOnStart and p == Player then
-		World:AddChild(Player)
-	    dropPlayer()
-	end
-	--multi:initPlayer(p)
-	p.CollidesWithGroups = Map.CollisionGroups
+	dropPlayer(p)
 end
 
 Client.Tick = function(dt)
-	--multi:tick(dt)
-
     -- Detect if player is falling,
     -- drop it above the map when it happens.
     if Player.Position.Y < -500 then
-        dropPlayer()
+        dropPlayer(Player)
         Player:TextBubble("💀 Oops!")
     end
 end
 
+function cancelMenu()
+	hideMenu()
+	showInstructions()
+end
+
+local dirPad = Client.DirectionalPad
+Client.DirectionalPad = function(x, y)
+	cancelMenu()
+	dirPad(x, y)
+end
+
+Pointer.DragBegin = cancelMenu
+Screen.DidResize = cancelMenu
+
 -- jump function, triggered with Action1
 Client.Action1 = function()
+	cancelMenu()
     --if Player.IsOnGround then
         Player.Velocity.Y = 100
     --end
@@ -347,8 +107,6 @@ function imageQuery(message, impact, pos)
 	end
 end
 
-Client.OnSubmit = function() end
-
 Client.OnChat = function(message)
 	local e = Event()
 	e.action = "chat"
@@ -357,10 +115,8 @@ Client.OnChat = function(message)
 end
 
 Client.DidReceiveEvent = function(e)
-	--multi:receive(e)
 
 	if e.action == "vox" then
-
 		local pos
 		local rotY
 
@@ -409,14 +165,10 @@ Client.DidReceiveEvent = function(e)
 			s.Rotation.Y = rotY
 			s.Physics = PhysicsMode.Dynamic
 
-			--REMOVED: TriggerPerBlock with max encompassing box works.
-			--s.CollisionBox = Box(center - {0.5, 0, 0.5}, center + {0.5, 1, 0.5})
-
 			Timer(1, function()
 				s.Physics = PhysicsMode.TriggerPerBlock
-				s.CollisionGroups = {GEN_GROUP}
+				s.CollisionGroups = {GENERATED_ITEM_COLLISION_GROUP}
 			end)
-			-- s.Scale = 0.7
 			sfx("waterdrop_2", {Position = pos})
 		end)
 		if not success then
@@ -426,7 +178,8 @@ Client.DidReceiveEvent = function(e)
 	elseif e.action == "otherGen" then
 		makeBubble(e)
 	elseif e.action == "chat" then
-		print(e.Sender.Username..": "..e.msg)
+		print(e.Sender.Username..": ".. e.msg)
+		e.Sender:TextBubble(e.msg, true)
 	end
 end
 
@@ -459,6 +212,8 @@ end
 Server.DidReceiveEvent = function(e)
 	if e.action == "gen" then
 		local headers = {}
+		local apiURL = "https://api.voxdream.art"
+
 		headers["Content-Type"] = "application/json"
 		HTTP:Post(apiURL.."/pixelart/vox", headers, { userInput=e.userInput }, function(data)
 			local body = JSON:Decode(data.Body)
@@ -479,4 +234,261 @@ Server.DidReceiveEvent = function(e)
 			end)
 		end)
 	end
+end
+
+-- Utility functions
+
+function hideMenu()
+	if createButton then createButton:remove() createButton = nil end
+	if prompt then prompt:remove() prompt = nil end
+	if itemDetails then itemDetails:remove() itemDetails = nil end
+	deleteTarget()
+end
+
+function showMenu(pointerEvent)
+	hideMenu()
+
+	local screenPos = Number2(pointerEvent.X * Screen.Width, pointerEvent.Y * Screen.Height)
+
+	local impact = pointerEvent:CastRay(Map.CollisionGroups + {GENERATED_ITEM_COLLISION_GROUP})
+	if impact ~= nil then
+		if impact.Object == Map then
+
+			local pos = pointerEvent.Position + pointerEvent.Direction * impact.Distance
+			
+			showTarget(impact, pos)
+			
+			createButton = ui:createButton("➕ Create Image")
+
+			local px = screenPos.X - createButton.Width * 0.5
+			if px < Screen.SafeArea.Left + PADDING then px = Screen.SafeArea.Left + PADDING end
+			if px > Screen.Width - Screen.SafeArea.Right - createButton.Width - PADDING then px = Screen.Width - Screen.SafeArea.Right - createButton.Width - PADDING end
+
+			local py = screenPos.Y + POINTER_OFFSET
+			if py < Screen.SafeArea.Bottom + PADDING then py = Screen.SafeArea.Bottom + PADDING end
+			if py > Screen.Height - Screen.SafeArea.Top - createButton.Height - PADDING then py = Screen.Height - Screen.SafeArea.Top - createButton.Height - PADDING end			
+
+			createButton.pos.X = px
+			createButton.pos.Y = py
+
+			createButton.onRelease = function()
+				createButton:remove() createButton = nil
+
+				prompt = ui:createNode()
+				local input = ui:createTextInput(nil, "What do you want?")
+				input:setParent(prompt)
+				input:focus()
+
+				local send = function()
+					imageQuery(input.Text, impact, pos)
+					sfx("modal_3", {Spatialized=false, Pitch=2.0})
+					prompt:remove()
+					prompt = nil
+					deleteTarget()
+				end
+
+				input.onSubmit = send
+
+				local sendBtn = ui:createButton("✅", {textSize="big"})
+				sendBtn:setParent(prompt)
+				sendBtn.onRelease = send
+
+				input.Height = sendBtn.Height
+				input.Width = 250
+				sendBtn.pos.X = input.Width
+
+				local width = input.Width + sendBtn.Width
+				local height = sendBtn.Height
+
+				local px = screenPos.X - width * 0.5
+				if px < Screen.SafeArea.Left + PADDING then px = Screen.SafeArea.Left + PADDING end
+				if px > Screen.Width - Screen.SafeArea.Right - width - PADDING then px = Screen.Width - Screen.SafeArea.Right - width - PADDING end
+
+				local py = screenPos.Y + POINTER_OFFSET
+				if py < Screen.SafeArea.Bottom + PADDING then py = Screen.SafeArea.Bottom + PADDING end
+				if py > Screen.Height - Screen.SafeArea.Top - height - PADDING then py = Screen.Height - Screen.SafeArea.Top - height - PADDING end
+
+				prompt.pos.X = px
+				prompt.pos.Y = py
+			end
+		
+		else -- clicked on generated item
+
+			itemDetails = ui:createFrame(Color(0,0,0,128))
+			local line1 = ui:createText(impact.Object.userInput, Color.White)
+			line1.object.MaxWidth = 200
+			line1:setParent(itemDetails)
+			local line2 = ui:createText("by " .. impact.Object.user, Color.White, "small")
+			line2:setParent(itemDetails)
+
+			itemDetails.parentDidResize = function()
+				local width = math.max(line1.Width, line2.Width) + PADDING * 2
+				local height = line1.Height + line2.Height + PADDING * 3
+				itemDetails.Width = width
+				itemDetails.Height = height
+				line1.pos = {PADDING, itemDetails.Height - PADDING - line1.Height, 0}
+				line2.pos = line1.pos - {0, line2.Height + PADDING, 0}
+
+				local px = screenPos.X - itemDetails.Width * 0.5
+				if px < Screen.SafeArea.Left + PADDING then px = Screen.SafeArea.Left + PADDING end
+				if px > Screen.Width - Screen.SafeArea.Right - itemDetails.Width - PADDING then px = Screen.Width - Screen.SafeArea.Right - itemDetails.Width - PADDING end
+
+				local py = screenPos.Y + POINTER_OFFSET
+				if py < Screen.SafeArea.Bottom + PADDING then py = Screen.SafeArea.Bottom + PADDING end
+				if py > Screen.Height - Screen.SafeArea.Top - itemDetails.Height - PADDING then py = Screen.Height - Screen.SafeArea.Top - itemDetails.Height - PADDING end	
+
+				itemDetails.pos = {px, py, 0}
+			end
+			itemDetails:parentDidResize()
+
+		end
+	end
+end
+
+function showTarget(impact, pos)
+	if impact == nil then return end
+
+	if _target == nil then
+		local ms = MutableShape()
+		ms:AddBlock(Color.White, 0, 0, 0)
+
+		ms:AddBlock(Color.White, -2, 0, -2)
+		ms:AddBlock(Color.White, -2, 0, -1)
+		ms:AddBlock(Color.White, -1, 0, -2)
+
+		ms:AddBlock(Color.White, -2, 0, 2)
+		ms:AddBlock(Color.White, -2, 0, 1)
+		ms:AddBlock(Color.White, -1, 0, 2)
+
+		ms:AddBlock(Color.White, 2, 0, 2)
+		ms:AddBlock(Color.White, 2, 0, 1)
+		ms:AddBlock(Color.White, 1, 0, 2)
+
+		ms:AddBlock(Color.White, 2, 0, -2)
+		ms:AddBlock(Color.White, 2, 0, -1)
+		ms:AddBlock(Color.White, 1, 0, -2)
+
+		_target = Shape(ms)
+		_target.Pivot = {_target.Width * 0.5, _target.Height * 0.5, _target.Depth * 0.5}
+		_target.Physics = PhysicsMode.Disabled
+	end
+
+	_target.LocalScale = Number3(0, 0, 0)
+	_target.LocalPosition = pos
+	_target.Up = faceNormals[impact.FaceTouched] or Number3(0, 1, 0)
+	_target.Tick = function(o, dt) o:RotateLocal(o.Up, dt) end
+	_target:SetParent(World)
+	ease:outElastic(_target, 0.4).LocalScale = {1.6, 1, 1.6}
+end
+
+function deleteTarget()
+	if _target ~= nil then _target:SetParent(nil) end
+end
+
+function dropPlayer(p)
+	World:AddChild(p)
+	p.Position = Number3(Map.Width * 0.5, Map.Height + 10, Map.Depth * 0.5) * Map.Scale
+	p.Rotation = { 0, 0, 0 }
+	p.Velocity = { 0, 0, 0 }
+end
+
+-- shows instructions at the top left corner of the screen
+function showInstructions() 
+	if instructions ~= nil then 
+		instructions:show()
+		return
+	end
+
+	instructions = ui:createFrame(Color(0,0,0,128))
+	local line1 = ui:createText("🎥 Drag to move camera", Color.White)
+	line1:setParent(instructions)
+	local line2 = ui:createText("☝️ Click to bring up CREATOR MENU!", Color.White)
+	line2:setParent(instructions)
+	local line3 = ui:createText("🔎 Click on an image for info.", Color.White)
+	line3:setParent(instructions)
+
+	instructions.parentDidResize = function()
+		local width = math.max(line1.Width, line2.Width, line3.Width) + PADDING * 2
+		local height = line1.Height + line2.Height + line3.Height + PADDING * 4
+		instructions.Width = width
+		instructions.Height = height
+		line1.pos = {PADDING, instructions.Height - PADDING - line1.Height, 0}
+		line2.pos = line1.pos - {0, line1.Height + PADDING, 0}
+		line3.pos = line2.pos - {0, line2.Height + PADDING, 0}
+		instructions.pos = {Screen.SafeArea.Left + PADDING, Screen.Height - Screen.SafeArea.Top - instructions.Height - PADDING, 0}
+	end
+	instructions:parentDidResize()
+end
+
+function hideInstructions()
+	if instructions ~= nil then instructions:hide() end
+end
+
+function showWelcomeHint()
+	if welcomeHint ~= nil then return end
+	welcomeHint = ui:createText("Click on a block!", Color(1.0,1.0,1.0), "big")
+	welcomeHint.parentDidResize = function() 
+		welcomeHint.pos.X = Screen.Width * 0.5 - welcomeHint.Width * 0.5
+		welcomeHint.pos.Y = Screen.Height * 0.66 - welcomeHint.Height * 0.5 
+	end
+	welcomeHint:parentDidResize()
+
+	local t = 0
+	welcomeHint.object.Tick = function(o, dt) 
+		t = t + dt
+		if (t % 0.4) <= 0.2 then 
+			o.Color = Color(0.0, 0.8, 0.6) 
+		else 
+			o.Color = Color(1.0, 1.0, 1.0) 
+		end 
+	end
+end
+
+function hideWelcomeHint()
+	if welcomeHint == nil then return end
+	welcomeHint:remove()
+	welcomeHint = nil
+end
+
+-- creates loading bubble
+function makeBubble(e)
+	local bubble = MutableShape()
+	bubble:AddBlock(Color.White, 0, 0, 0)
+	bubble:SetParent(World)
+	bubble.Pivot = Number3(0.5,0,0.5)
+	bubble.Position = e.pos
+	bubble.Rotation.Y = e.rotY
+	bubble.eid = e.id
+
+	bubble.Tick = function(o, dt)
+		o.Scale.X = o.Scale.X + dt * 2
+		o.Scale.Y = o.Scale.Y + dt * 2
+		if o.text ~= nil then
+			o.text.Position = o.Position
+			o.text.Position.Y = o.Position.Y + o.Height * o.Scale.Y + 1
+		end
+	end
+
+	local t = Text()
+	t:SetParent(World)
+	t.Rotation.Y = e.rotY
+	t.Text = e.m
+	t.Type = TextType.World
+	t.IsUnlit = true
+	t.Tail = true
+	t.Anchor = { 0.5, 0 }
+	t.Position.Y = bubble.Position.Y + bubble.Height * bubble.Scale.Y + 1
+	bubble.text = t
+
+	-- remove after 15 seconds without response
+	Timer(15, function()
+		if bubble then
+			gens[bubble.eid] = nil
+			bubble.Tick = nil
+			if bubble.text then bubble.text:RemoveFromParent() end
+			bubble:RemoveFromParent()
+		end
+	end)
+
+	gens[e.id] = bubble
 end
