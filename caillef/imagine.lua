@@ -133,7 +133,6 @@ Client.DidReceiveEvent = function(e)
 				return
 			end
 		elseif e.pos then
-			print("sync packet from server")
 			pos = e.pos
 			rotY = e.rotY
 		else
@@ -280,8 +279,10 @@ function showMenu(pointerEvent)
 				input:focus()
 
 				local send = function()
-					imageQuery(input.Text, impact, pos)
-					sfx("modal_3", {Spatialized=false, Pitch=2.0})
+					if input.Text ~= "" then
+						imageQuery(input.Text, impact, pos)
+						sfx("modal_3", {Spatialized=false, Pitch=2.0})
+					end
 					prompt:remove()
 					prompt = nil
 					deleteTarget()
