@@ -740,12 +740,6 @@ weaponsMetatable = {
 			else
 				self.uiHidden = not show
 			end
-
-			if self.uiHidden then
-				self.ammoCountText:hide()
-			else
-				self.ammoCountText:show()
-			end
 			self.entityHP:toggleUI(not self.uiHidden)
 		end,
         placeNextBulletImpactDecal = function(self, pos, rot)
@@ -1715,32 +1709,38 @@ setmetatable(killfeed, killfeedMetatable)
 -- display ammo on the left of the screen
 local ammoIndicators = {}
 local maxAmmoPerRow = 12
-local rowSpacing = 0.5
+local rowSpacing = 22
 
 addAmmoIndication = function(numberAmmo)
-    -- Clear previously displayed ammo indicators
-    for _, indicator in ipairs(ammoIndicators) do
+	for _, indicator in ipairs(ammoIndicators) do
         indicator:hide()
     end
     ammoIndicators = {}
 
-    ui = require("uikit")
+    local ui = require("uikit")
     local numRows = math.ceil(numberAmmo / maxAmmoPerRow)
-
     for row = 1, numRows do
         local numAmmoThisRow = math.min(maxAmmoPerRow, numberAmmo - (row - 1) * maxAmmoPerRow)
 
         for i = 1, numAmmoThisRow do
             local ammoIndicator = ui:createShape(Shape(Items.k40s.gun_bullet))
-            ammoIndicator.Scale = 0.5
-            
-
-            local xOffset = ((i - 1) / 2) * 200 + 20
-            local zOffset = (row - 1) * rowSpacing
-
-            ammoIndicator.LocalPosition = Number3(xOffset, Screen.Height / 4 - zOffset, 0)
-            ammoIndicator.Scale = 0.5
+            ammoIndicator.Width = ammoIndicator.Width * 0.2
+            ammoIndicator.Height = ammoIndicator.Height * 0.2
+            ammoIndicator.parentDidResize = function()
+                ammoIndicator.LocalPosition = Number3(
+                    ((i - 1) / 2) * 35 + 20,
+                    (Screen.Height / 3 - 10) - ammoIndicator.Height - (row - 1) * rowSpacing,
+                    0
+                )
+            end
+            ammoIndicator.LocalPosition = Number3(
+                ((i - 1) / 2) * 35 + 20,
+                (Screen.Height / 3 - 10) - ammoIndicator.Height - (row - 1) * rowSpacing,
+                0
+            )
+            ammoIndicator:parentDidResize()
             table.insert(ammoIndicators, ammoIndicator)
         end
     end
 end
+
