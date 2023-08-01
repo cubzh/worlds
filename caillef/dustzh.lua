@@ -9,7 +9,7 @@ local SOUND = true
 local ROUND_DURATION = 240
 local SPAWN_BLOCK_COLOR = Color(136,0,252)
 local MAX_NB_KILLS_END_ROUND = 40
-local displayControls =  true -- display controls at start
+local displayInstructions =  true -- display controls at start
 
 Config.ConstantAcceleration.Y = -300
 
@@ -248,9 +248,10 @@ end
 Client.Action2 = function()
 	if gsm.state == gsm.States.EndRound then return end
     weapons:pressShoot()
-    if displayControls == true then
-        displayControls = false
+    if displayInstructions == true then
+        displayInstructions = false
         instructions:hide()
+        print(instructions.isVisible)
     end
 end
 
@@ -728,7 +729,7 @@ weaponsMetatable = {
         end,
         updateAmmoUI = function(self)
             if self.ammo == nil then return end
-            addAmmoIndication(math.floor(self.ammo))
+            addAmmoIndication(math.floor(self.ammo), self.weaponNameText)
         end,
         updateNameUI = function(self)
             if self.weaponName == nil then return end
@@ -1709,9 +1710,9 @@ setmetatable(killfeed, killfeedMetatable)
 -- display ammo on the left of the screen
 local ammoIndicators = {}
 local maxAmmoPerRow = 12
-local rowSpacing = 22
 
-addAmmoIndication = function(numberAmmo)
+addAmmoIndication = function(numberAmmo, weaponNameText)
+    local rowSpacing = weaponNameText.Height * 1.2
 	for _, indicator in ipairs(ammoIndicators) do
         indicator:hide()
     end
@@ -1724,11 +1725,12 @@ addAmmoIndication = function(numberAmmo)
 
         for i = 1, numAmmoThisRow do
             local ammoIndicator = ui:createShape(Shape(Items.k40s.gun_bullet))
-            ammoIndicator.Width = ammoIndicator.Width * 0.2
-            ammoIndicator.Height = ammoIndicator.Height * 0.2
+            
             ammoIndicator.parentDidResize = function()
+                ammoIndicator.Width = weaponNameText.Height * 0.6
+                ammoIndicator.Height = weaponNameText.Height
                 ammoIndicator.LocalPosition = Number3(
-                    ((i - 1) / 2) * 35 + 20,
+                    ((i - 1) / 2) * (ammoIndicator.Width * 3) + 20,
                     (Screen.Height / 3 - 10) - ammoIndicator.Height - (row - 1) * rowSpacing,
                     0
                 )
