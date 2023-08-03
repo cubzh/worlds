@@ -10,6 +10,7 @@ local ROUND_DURATION = 240
 local SPAWN_BLOCK_COLOR = Color(136,0,252)
 local MAX_NB_KILLS_END_ROUND = 40
 local displayInstructions =  true -- display controls at start
+local weaponName = nil
 
 Config.ConstantAcceleration.Y = -300
 
@@ -251,7 +252,6 @@ Client.Action2 = function()
     if displayInstructions == true then
         displayInstructions = false
         instructions:hide()
-        print(instructions.isVisible)
     end
 end
 
@@ -715,7 +715,7 @@ weaponsMetatable = {
             hitMarker:hide()
             self.hitMarker = hitMarker
 
-            local weaponName = ui:createText("weaponsName", Color.Black)
+            weaponName = ui:createText("weaponsName", Color.Black)
             self.ammoCountText = ammoCount
             self.weaponNameText = weaponName
             weaponName.parentDidResize = function()
@@ -1042,7 +1042,13 @@ weaponsMetatable = {
                 ui = require("uikit")
                 local displayedWeapon = ui:createShape(Shape(self.templates[weaponInfo.item]))
                 displayedWeapon.parentDidResize = function()
-                    displayedWeapon.LocalPosition = { 160, Screen.Height / 3, 0 }
+                    displayedWeapon.Height = weaponName.Height
+                    displayedWeapon.Width = weaponName.Height
+                    if Screen.Width > Screen.Height then
+                       displayedWeapon.LocalPosition = { 190 - displayedWeapon.Width , Screen.Height / 3, 0 }
+                    else
+                        displayedWeapon.LocalPosition = { 140 - displayedWeapon.Width, Screen.Height / 3, 0 }
+                    end
                     displayedWeapon.LocalRotation.Y = 180
                 end
                 displayedWeapon:parentDidResize()
