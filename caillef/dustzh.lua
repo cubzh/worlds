@@ -1,7 +1,7 @@
 
 Config = {
     Map = "caillef.quakzh_dust2",
-    Items = { "caillef.wooden_crate", "caillef.barrels", "xavier.damage_indicator", "caillef.roboteye" }
+    Items = { "caillef.wooden_crate", "caillef.barrels", "xavier.damage_indicator", "caillef.roboteye", "k40s.gun_bullet" }
 }
 
 local DEBUG = false -- starts with a single player
@@ -9,6 +9,8 @@ local SOUND = true
 local ROUND_DURATION = 240
 local SPAWN_BLOCK_COLOR = Color(136,0,252)
 local MAX_NB_KILLS_END_ROUND = 40
+local displayInstructions =  true -- display controls at start
+local weaponName = nil
 
 Config.ConstantAcceleration.Y = -300
 
@@ -170,6 +172,7 @@ Client.OnPlayerJoin = function(p)
 			bg:remove()
 		end
 	end)
+    instructions:display()
 end
 
 Client.OnPlayerLeave = function(p)
@@ -246,6 +249,10 @@ end
 Client.Action2 = function()
 	if gsm.state == gsm.States.EndRound then return end
     weapons:pressShoot()
+    if displayInstructions == true then
+        displayInstructions = false
+        instructions:hide()
+    end
 end
 
 Client.Action2Release = function()
@@ -257,7 +264,54 @@ Client.Action3Release = function()
 end
 
 
+instructions = {
+    bg = nil
+}
 
+instructions.display = function(self)
+    if self.bg == nil then
+        local ui = require("uikit")
+        local bg = ui:createFrame(Color(0,0,0,0.5))
+
+        local welcomeText = ui:createText("Welcome to Dustzh!", Color.White)
+        welcomeText:setParent(bg)
+
+        local Action1Text = ui:createText("Action1: Jump", Color.White)
+        Action1Text:setParent(bg)
+
+        local Action2Text = ui:createText("Action2: Shoot", Color.White)
+        Action2Text:setParent(bg)
+
+        local Action3Text = ui:createText("Action3: Reload", Color.White)
+        Action3Text:setParent(bg)
+
+        local dismissText = ui:createText("(shoot to dismiss)", Color.White, "small")
+        dismissText:setParent(bg)
+
+        bg.parentDidResize = function(self)
+            local padding = 4
+            local maxWidth = math.max(welcomeText.Width, Action1Text.Width, Action2Text.Width, Action3Text.Width, dismissText.Width)
+            local height = welcomeText.Height + padding + Action1Text.Height + padding + Action2Text.Height + padding + Action3Text.Height + padding + dismissText.Height
+
+            self.Width = maxWidth + padding * 2
+            self.Height = height + padding * 2
+            self.pos = {Screen.Width * 0.5 - self.Width * 0.5, Screen.Height * 0.5 - self.Height * 0.5, 0}
+
+            welcomeText.pos = {self.Width * 0.5 - welcomeText.Width * 0.5, self.Height - padding - welcomeText.Height, 0}
+            Action1Text.pos = {self.Width * 0.5 - Action1Text.Width * 0.5,  welcomeText.pos.Y - padding - Action1Text.Height, 0}
+            Action2Text.pos = {self.Width * 0.5 - Action2Text.Width * 0.5,  Action1Text.pos.Y - padding - Action2Text.Height, 0}
+            Action3Text.pos = {self.Width * 0.5 - Action3Text.Width * 0.5,  Action2Text.pos.Y - padding - Action3Text.Height, 0}
+            dismissText.pos = {self.Width * 0.5 - dismissText.Width * 0.5,  Action3Text.pos.Y - padding - dismissText.Height, 0}
+        end
+        bg:parentDidResize()
+        self.bg = bg
+    end
+    self.bg:show()
+end
+
+instructions.hide = function(self)
+    if self.bg ~= nil then self.bg:hide() end
+end
 
 indicatorsPool = {}
 addDamageIndicator = function(shooterPos)
@@ -460,7 +514,8 @@ entityHPMetatable = {
                     bg.Height = 20
                     bg.Width = 120
                 end
-                bg.pos = { Screen.Width / 2 - bg.Width / 2, 100, 0 }
+                local pos = Number3(10, Screen.Height / 3 + bg.Height, 0)
+                bg.pos = pos
                 bg:update()
             end
             bg:parentDidResize()
@@ -592,6 +647,7 @@ autoSpawnPoints = {
     end
 }
 
+local displayedWeapon = {}
 weapons = {}
 weaponsMetatable = {
     __index = {
@@ -659,32 +715,31 @@ weaponsMetatable = {
             hitMarker:hide()
             self.hitMarker = hitMarker
 
-            local ammoCount = ui:createText("20/20", Color.White, "big")
+            weaponName = ui:createText("weaponsName", Color.Black)
             self.ammoCountText = ammoCount
-			ammoCount.parentDidResize = function(self)
-                self.pos = { Screen.Width * 0.5 - self.Width * 0.5, 100 - self.Height - 10, 0 }
+            self.weaponNameText = weaponName
+            weaponName.parentDidResize = function()
+                self.weaponNameText.pos = { 30, Screen.Height / 3, 0 }
             end
-            ammoCount:parentDidResize()
+            weaponName:parentDidResize()
             self:updateAmmoUI()
+            self:updateNameUI()
 
 			self.templates = {}
         end,
         updateAmmoUI = function(self)
             if self.ammo == nil then return end
-            self.ammoCountText.Text = math.floor(self.ammo).."/"..self.maxAmmo
-			self.ammoCountText.pos = { Screen.Width * 0.5 - self.ammoCountText.Width * 0.5, 100 - self.ammoCountText.Height - 10, 0 }
+            addAmmoIndication(math.floor(self.ammo), self.weaponNameText)
+        end,
+        updateNameUI = function(self)
+            if self.weaponName == nil then return end
+            self.weaponNameText.Text = self.weaponName
         end,
 		toggleUI = function(self, show)
 			if show == nil then
 				self.uiHidden = not self.uiHidden
 			else
 				self.uiHidden = not show
-			end
-
-			if self.uiHidden then
-				self.ammoCountText:hide()
-			else
-				self.ammoCountText:show()
 			end
 			self.entityHP:toggleUI(not self.uiHidden)
 		end,
@@ -795,7 +850,7 @@ weaponsMetatable = {
             Timer(2, function()
             	self.reloading = false
             	self.ammo = self.maxAmmo
-            	self:updateAmmoUI()                            
+            	self:updateAmmoUI()
             end)
 		end,
         _tick = function(self, dt)
@@ -967,7 +1022,9 @@ weaponsMetatable = {
                 self.currentWeapon = weaponInfo
                 self.maxAmmo = weaponInfo.ammo
                 self.ammo = weaponInfo.ammo
+                self.weaponName = weaponInfo.name
                 self:updateAmmoUI()
+                self:updateNameUI()
                 multi:playerAction("changeWeapon", { id = id })
             end
 			p.weaponId = id
@@ -975,6 +1032,26 @@ weaponsMetatable = {
 				local weapon =  Shape(self.templates[weaponInfo.item])
 				weapon.Pivot = self.templates[weaponInfo.item].Pivot
 				self:_setWeapon(p, weapon, weaponInfo, forceNotFPS)
+
+                -- display the weapon next to the weapon name
+                for _, i in ipairs(displayedWeapon) do
+                    Camera:RemoveChild(i)
+                end
+
+                displayedWeapon = {}
+                ui = require("uikit")
+                local displayedWeapon = ui:createShape(Shape(self.templates[weaponInfo.item]))
+                displayedWeapon.parentDidResize = function()
+                    displayedWeapon.Height = weaponName.Height
+                    displayedWeapon.Width = weaponName.Height
+                    if Screen.Width > Screen.Height then
+                       displayedWeapon.LocalPosition = { 190 - displayedWeapon.Width , Screen.Height / 3, 0 }
+                    else
+                        displayedWeapon.LocalPosition = { 140 - displayedWeapon.Width, Screen.Height / 3, 0 }
+                    end
+                    displayedWeapon.LocalRotation.Y = 180
+                end
+                displayedWeapon:parentDidResize()
 				return
 			end
             Object:Load(weaponInfo.item, function(weapon)
@@ -1077,7 +1154,7 @@ local uiRoundScoreMetatable = {
             local ui = require("uikit")
             if self._isInit then return end
 
-            local bg = ui:createFrame(Color(0,0,0,0.5))
+            local bg = ui:createFrame(Color(0,0,0,0))
             bg:setParent(ui.rootFrame)
             bg.Width = 150
             bg.Height = 500
@@ -1090,7 +1167,7 @@ local uiRoundScoreMetatable = {
             local sortEntries = self:_sortByKillsDesc(self.entries)
             local widerTextWidth = 0
             for k,t in ipairs(sortEntries) do
-                t.Text = t.player.Username.." "..tostring(t.player[self.scoreKey])
+                t.Text = t.player.Username.."   "..tostring(t.player[self.scoreKey])
                 t.LocalPosition = Number3(3, (k-1) * (t.Height + 2), 0)
                 t.LocalPosition.Z = -1
                 if t.Width > widerTextWidth then
@@ -1099,7 +1176,10 @@ local uiRoundScoreMetatable = {
             end
             self.bg.Height = #self.players * (sortEntries[1].Height + 2)
             self.bg.Width = widerTextWidth + 10
-            self.bg.LocalPosition = { Screen.Width - self.bg.Width, Screen.Height / 2 - self.bg.Height / 2, 0 }
+            self.bg.parentDidResize = function()
+                self.bg.LocalPosition = { 5, Screen.Height - (self.bg.Height + 5), 0 }
+            end
+            self.bg.parentDidResize()
         end,
         _sortByKillsDesc = function(self,arr)
             local arrCopy = {}
@@ -1128,7 +1208,8 @@ local uiRoundScoreMetatable = {
                 local nameUI = require("uikit"):createText(v.Username.." 0")
                 nameUI:setParent(self.bg)
                 nameUI.player = v
-                nameUI.color = v == Player and Color.Green or Color.White
+                --nameUI.color = v == Player and Color.Green or Color.White
+                nameUI.color = Color.White
                 table.insert(self.entries, nameUI)
             end
             self:_refreshUI()
@@ -1631,3 +1712,43 @@ killfeedMetatable = {
 	}
 }
 setmetatable(killfeed, killfeedMetatable)
+
+-- display ammo on the left of the screen
+local ammoIndicators = {}
+local maxAmmoPerRow = 12
+
+addAmmoIndication = function(numberAmmo, weaponNameText)
+    local rowSpacing = weaponNameText.Height * 1.2
+	for _, indicator in ipairs(ammoIndicators) do
+        indicator:hide()
+    end
+    ammoIndicators = {}
+
+    local ui = require("uikit")
+    local numRows = math.ceil(numberAmmo / maxAmmoPerRow)
+    for row = 1, numRows do
+        local numAmmoThisRow = math.min(maxAmmoPerRow, numberAmmo - (row - 1) * maxAmmoPerRow)
+
+        for i = 1, numAmmoThisRow do
+            local ammoIndicator = ui:createShape(Shape(Items.k40s.gun_bullet))
+            
+            ammoIndicator.parentDidResize = function()
+                ammoIndicator.Width = weaponNameText.Height * 0.6
+                ammoIndicator.Height = weaponNameText.Height
+                ammoIndicator.LocalPosition = Number3(
+                    ((i - 1) / 2) * (ammoIndicator.Width * 3) + 20,
+                    (Screen.Height / 3 - 10) - ammoIndicator.Height - (row - 1) * rowSpacing,
+                    0
+                )
+            end
+            ammoIndicator.LocalPosition = Number3(
+                ((i - 1) / 2) * 35 + 20,
+                (Screen.Height / 3 - 10) - ammoIndicator.Height - (row - 1) * rowSpacing,
+                0
+            )
+            ammoIndicator:parentDidResize()
+            table.insert(ammoIndicators, ammoIndicator)
+        end
+    end
+end
+
