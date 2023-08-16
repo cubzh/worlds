@@ -1,34 +1,93 @@
 
 Config = {
-    Map = "caillef.quakzh_dust2",
-    Items = { "caillef.wooden_crate", "caillef.barrels", "xavier.damage_indicator", "caillef.roboteye", "k40s.gun_bullet" }
+    Items = { "caillef.wooden_crate", "caillef.barrels", "xavier.damage_indicator", "caillef.roboteye", "k40s.gun_bullet", "voxels.dustzh_chunk_1", "voxels.dustzh_chunk_2", "voxels.dustzh_chunk_3", "voxels.dustzh_chunk_4", "voxels.dustzh_chunk_5" }
 }
 
+-- TODO
+--- [ ] spawnpoints
+
+local MAP_SCALE = 2
 local DEBUG = false -- starts with a single player
 local SOUND = true
 local ROUND_DURATION = 240
 local SPAWN_BLOCK_COLOR = Color(136,0,252)
 local MAX_NB_KILLS_END_ROUND = 40
-local displayInstructions =  true -- display controls at start
 local weaponName = nil
 
 Config.ConstantAcceleration.Y = -300
 
 local weaponsList = {
-    { name="Rifle", item="caillef.default_rifle", cooldown=0.12, mode="auto", dmg=15, ammo=12, muzzleFlashY=-1 },
-    { name="Pistol", item="caillef.default_pistol", cooldown=0.2, mode="manual", dmg=25, ammo=6 },
-    { name="P90", item="caillef.default_p90", cooldown=0.06, mode="auto", dmg=7, ammo=22 },
-    { name="Deagle", item="caillef.desert_eagle", cooldown=0.4, mode="manual", dmg=40, ammo=4 },
+    { name="Rifle", item="voxels.assault_rifle", cooldown=0.12, mode="auto", dmg=15, ammo=12, muzzleFlashY=-1, scale=0.4, mirror=true },
+    { name="Pistol", item="voxels.silver_pistol", cooldown=0.2, mode="manual", dmg=25, ammo=6, scale=0.4, mirror=true },
+    { name="P90", item="voxels.p90", cooldown=0.06, mode="auto", dmg=7, ammo=22, scale=0.4, mirror=true },
+    { name="Deagle", item="voxels.golden_pistol", cooldown=0.4, mode="manual", dmg=40, ammo=4, scale=0.4, mirror=true },
     { name="RailCow", item="jacksbertox.milk_cannon_triple", scale=0.3, sfx="cow_", cooldown=1, mode="auto", dmg=100, ammo=10 },
     --{ name="Bluecar", item="caillef.bluecar", scale=0.5, sfx="carhonk_", cooldown=1, mode="auto", dmg=100, ammo=10 },
 }
 
+local function generateMapFromChunks()
+	local scale = MAP_SCALE
+	local initChunk = function(name)
+		local chunk = Shape(Items.voxels[name])
+		chunk.Physics = PhysicsMode.StaticPerBlock
+		chunk.Scale = scale
+		chunk.Friction = Map.Friction
+		chunk.Bounciness = Map.Bounciness
+		chunk.CollisionGroups = Map.CollisionGroups
+		chunk.CollidesWithGroups = Map.CollidesWithGroups
+		chunk:SetParent(World)
+		return chunk
+	end
+	
+	local chunk1 = initChunk("dustzh_chunk_1")
+	local chunk2 = initChunk("dustzh_chunk_2")
+	local chunk3 = initChunk("dustzh_chunk_3")
+	local chunk4 = initChunk("dustzh_chunk_4")
+	local chunk5 = initChunk("dustzh_chunk_5")
+
+	chunk2.Position = Number3(-2 * scale, 4 * scale, chunk1.Depth * scale)
+	chunk3.Position = Number3(-chunk1.Width * scale, 0 * scale, (12 + chunk1.Depth) * scale)
+	chunk4.Position = Number3((-chunk1.Width - 12) * scale, 0, 20 * scale)
+	chunk5.Position = Number3(-12 * scale, 0, 20 * scale)
+end
+
+function placeProps()
+
+local savedObjects = JSON:Decode("[{\"p\":[-37.5632,8,155.478],\"r\":[0,5.72718,0],\"n\":\"voxels.gate\",\"s\":[0.5,0.5,0.5]},{\"p\":[-9.43368,34,396.3],\"r\":[0,1.30072,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[-240.13,32,86.1386],\"r\":[0,3.13041,0],\"n\":\"voxels.dumpster_open\",\"s\":[0.506684,0.5,0.5]},{\"p\":[80.1377,32,197.193],\"r\":[0,0,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[-35.4596,16,247.592],\"r\":[0,0.812674,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[80.4423,32,207.653],\"r\":[0,0,0],\"n\":\"voxels.barrel_red\",\"s\":[0.5,0.5,0.5]},{\"p\":[236.275,8,152.791],\"r\":[0,1.02623,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[-11.2556,8,199.319],\"r\":[0,0,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[-190.361,32,89.794],\"r\":[0,1.07044,0],\"n\":\"voxels.fence\",\"s\":[0.604606,0.5,0.5]},{\"p\":[-35.9643,24,396.072],\"r\":[0,1.92795,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[-6.35962,18,188.426],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[-4.34632,7.99999,187.779],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[-210.136,32,87.0317],\"r\":[0,3.10089,0],\"n\":\"voxels.dumpster\",\"s\":[0.5,0.5,0.547456]},{\"p\":[76.1532,32,188.869],\"r\":[0,1.97064,0],\"n\":\"voxels.oil_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[-4.9465,8,163.456],\"r\":[0,0.191109,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[71.7146,32,210.385],\"r\":[0,0,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[133.846,32,64.259],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[139.3,24,339.183],\"r\":[0,2.13248,0],\"n\":\"voxels.street_barrier_1\",\"s\":[0.5,0.5,0.5]},{\"p\":[205.408,10.3522,154.058],\"r\":[4.71239,1.05962,0],\"n\":\"voxels.barrel_red\",\"s\":[0.5,0.5,0.514443]},{\"p\":[133.164,24,218.618],\"r\":[0,1.31709,0],\"n\":\"voxels.crate_medium\",\"s\":[0.5,0.5,0.5]},{\"p\":[121.959,24,264.51],\"r\":[0,1.9113,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[126.463,24.6937,365.643],\"r\":[0.683969,0.143828,4.9377],\"n\":\"voxels.stop_sign\",\"s\":[0.459101,0.5,0.5]},{\"p\":[19.363,56,422.667],\"r\":[-0,4.42766,0],\"n\":\"voxels.broken_car\",\"s\":[0.566085,0.608845,0.645303]},{\"p\":[-173.305,32,362.15],\"r\":[0,1.24956,0],\"n\":\"voxels.toxic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[60.9466,8,90.5894],\"r\":[0,0,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[-11.1591,7.99998,141.671],\"r\":[0,2.69145,0],\"n\":\"voxels.gate\",\"s\":[0.5,0.5,0.5]},{\"p\":[-38.781,24,372.766],\"r\":[0,2.68338,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[113.147,46.9297,40],\"r\":[0,0,0],\"n\":\"voxels.poster_a\",\"s\":[1.10497,1.00187,0.5]},{\"p\":[-25.5188,10,76.3064],\"r\":[0,2.89749,0],\"n\":\"voxels.broken_car\",\"s\":[0.7,0.7,0.7]},{\"p\":[-224.02,32,86.1938],\"r\":[0,5.56634,0],\"n\":\"voxels.toxic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[-28.8899,34,389.978],\"r\":[0,1.39138,0],\"n\":\"voxels.crate_large\",\"s\":[0.498574,0.5,0.5]},{\"p\":[-31.1697,24,382.06],\"r\":[-0,3.19653,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[35.4607,40,196.403],\"r\":[0,0,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[-4.92926,18,177.76],\"r\":[0,1.40899,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[-22.4344,24,394.284],\"r\":[0,1.41656,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[-19.1073,48,395.192],\"r\":[0,0,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[-238.56,40,230.174],\"r\":[0,0,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[-109.938,12,200.877],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[-240.124,32,227.72],\"r\":[-0,3.37908,0],\"n\":\"voxels.crate_medium\",\"s\":[0.5,0.5,0.5]},{\"p\":[-4.23164,28,187.978],\"r\":[0,0,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[-6.04191,8,176.535],\"r\":[0,1.52983,0],\"n\":\"voxels.crate_large\",\"s\":[0.520342,0.5,0.5]},{\"p\":[-23.3106,7.69819,48.4862],\"r\":[0,3.12781,0],\"n\":\"voxels.garage_door\",\"s\":[0.5,0.5,0.5]},{\"p\":[68.8492,34,41.6179],\"r\":[1.5708,4.76841e-06,0],\"n\":\"voxels.spare_tire\",\"s\":[0.5,0.5,0.5]},{\"p\":[-10.587,24,385.661],\"r\":[0,1.42144,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[62.1985,32,51.6528],\"r\":[0,1.88235,0],\"n\":\"voxels.spare_tire\",\"s\":[0.5,0.5,0.5]},{\"p\":[248,7.95921,118.46],\"r\":[0,1.56075,0],\"n\":\"voxels.garage_door\",\"s\":[0.5,0.5,0.5]},{\"p\":[225.87,7.99999,163.939],\"r\":[0,5.21368,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[149.046,24.3197,323.709],\"r\":[4.82748,1.75768,1.4805],\"n\":\"voxels.stop_sign\",\"s\":[0.5,0.5,0.5]},{\"p\":[117.002,34,235.524],\"r\":[0,0,0],\"n\":\"voxels.crate_medium\",\"s\":[0.5,0.5,0.5]},{\"p\":[232.548,8,178.406],\"r\":[0,0,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[-3.42425,56,421.184],\"r\":[0,2.25615,0],\"n\":\"voxels.spare_tire\",\"s\":[0.5,0.5,0.5]},{\"p\":[132.199,24,266.602],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[147.431,24,234.992],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[141.531,37.99,366.994],\"r\":[0,0.0345237,0],\"n\":\"voxels.poster_x\",\"s\":[1.10251,0.890659,0.5]},{\"p\":[117.773,24,230.576],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[167.055,24,333.469],\"r\":[0,1.5994,0],\"n\":\"voxels.fence\",\"s\":[0.5,0.5,0.468997]},{\"p\":[-47.5,23.6129,324.599],\"r\":[-0,4.72402,0],\"n\":\"voxels.garage_door\",\"s\":[0.5,0.5,0.5]},{\"p\":[70.3327,8,84.5788],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[160.081,23.2383,332.007],\"r\":[0.302724,1.5269,2.89301e-07],\"n\":\"voxels.fence\",\"s\":[0.5,0.5,0.425834]},{\"p\":[-161.586,56,414.053],\"r\":[0,0,0],\"n\":\"voxels.car_lift\",\"s\":[0.5,0.5,0.5]},{\"p\":[-140.308,56,398.025],\"r\":[0,0,0],\"n\":\"voxels.fire_hydrant\",\"s\":[0.5,0.5,0.5]},{\"p\":[30.6004,8,85.599],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[-42.2361,8,55.9171],\"r\":[0,0,0],\"n\":\"voxels.tire_stack\",\"s\":[0.5,0.5,0.5]},{\"p\":[-204.644,34,318.755],\"r\":[0,1.22995,0],\"n\":\"voxels.construction_truck\",\"s\":[0.64386,0.645042,0.657126]},{\"p\":[59.942,31.9228,107.827],\"r\":[6.13325,1.58433,4.46747e-06],\"n\":\"voxels.ladder_metal\",\"s\":[0.5,0.5,0.516611]},{\"p\":[-28.6331,44,392.737],\"r\":[0,0,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[-119.66,12,200.643],\"r\":[0,1.6639,0],\"n\":\"voxels.crate_medium\",\"s\":[0.5,0.5,0.5]},{\"p\":[-20.8977,24,383.758],\"r\":[0,1.38406,0],\"n\":\"voxels.crate_medium\",\"s\":[0.5,0.5,0.5]},{\"p\":[-2.36415,8,199.28],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[-27.583,16,245.788],\"r\":[0,0.982933,0],\"n\":\"voxels.barrel_red\",\"s\":[0.5,0.5,0.5]},{\"p\":[62.6406,32,46.6156],\"r\":[0,0,0],\"n\":\"voxels.spare_tire\",\"s\":[0.5,0.5,0.5]},{\"p\":[-0.301805,56,414.835],\"r\":[0,3.12855,0],\"n\":\"voxels.tool_chest\",\"s\":[0.277812,0.23542,0.218786]},{\"p\":[161.26,32,81.0211],\"r\":[0,0,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[165.253,24,329.978],\"r\":[0,1.54984,0],\"n\":\"voxels.fence\",\"s\":[0.5,0.5,0.5]},{\"p\":[172.443,40,46.1448],\"r\":[0,0,0],\"n\":\"voxels.telephone_pole_2\",\"s\":[0.5,0.5,0.5]},{\"p\":[-57.0809,8,56.6613],\"r\":[0,0,0],\"n\":\"voxels.ladder_wood\",\"s\":[0.5,0.5,0.5]},{\"p\":[-10.8756,24,395.62],\"r\":[0,2.81677,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.55674]},{\"p\":[34.2299,8,100.524],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[-246.498,33.0744,316.502],\"r\":[0,4.69579,0],\"n\":\"voxels.garage_door\",\"s\":[0.5,0.5,0.5]},{\"p\":[-204.051,32,104.332],\"r\":[0,0.491865,0],\"n\":\"voxels.fence\",\"s\":[0.5,0.5,0.50841]},{\"p\":[-74.1917,55.9653,399.502],\"r\":[0,3.14133,0],\"n\":\"voxels.gate\",\"s\":[0.314133,0.344452,0.5]},{\"p\":[-212.798,32,100.629],\"r\":[0,1.64272,0],\"n\":\"voxels.tire_stack\",\"s\":[0.5,0.5,0.5]},{\"p\":[-235.625,32,235.606],\"r\":[-0,3.25714,0],\"n\":\"voxels.crate_medium\",\"s\":[0.5,0.5,0.5]},{\"p\":[-1.84917,18,198.052],\"r\":[0,0,0],\"n\":\"voxels.crate_medium\",\"s\":[0.5,0.5,0.5]},{\"p\":[185.599,8,157.904],\"r\":[0,0.999184,0],\"n\":\"voxels.barrel_red\",\"s\":[0.5,0.5,0.5]},{\"p\":[-108.441,22,202.424],\"r\":[0,1.37323,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[34.0518,32,191.853],\"r\":[0,1.45507,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[65.2278,34.5,48.9973],\"r\":[0,0,0],\"n\":\"voxels.spare_tire\",\"s\":[0.5,0.5,0.5]},{\"p\":[-18.6588,34,393.704],\"r\":[0,0,0],\"n\":\"voxels.crate_medium\",\"s\":[0.5,0.5,0.5]},{\"p\":[-221.693,32,108.757],\"r\":[0,0,0],\"n\":\"voxels.fence\",\"s\":[0.5,0.5,0.5]},{\"p\":[36.0789,32,199.302],\"r\":[0,2.00901,0],\"n\":\"voxels.barrel_red\",\"s\":[0.5,0.5,0.5]},{\"p\":[-188.725,32,146.437],\"r\":[0,1.83753,0],\"n\":\"voxels.car\",\"s\":[0.730401,0.621147,0.702817]},{\"p\":[72.7646,32,202.351],\"r\":[0,0,0],\"n\":\"voxels.barrel_red\",\"s\":[0.5,0.5,0.5]},{\"p\":[132.157,32,74.3864],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.519135]},{\"p\":[63.6524,32,63.8574],\"r\":[-0,4.56971,0],\"n\":\"voxels.dumpster\",\"s\":[0.5,0.5,0.408304]},{\"p\":[117.088,8,105.609],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[105.191,8,106.715],\"r\":[0,1.52207,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[-20.4315,42,394.913],\"r\":[0,0,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[192.902,8,149.298],\"r\":[0,6.09974,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[236.292,7.99999,164.547],\"r\":[0,0.570963,0],\"n\":\"voxels.barrel_red\",\"s\":[0.5,0.5,0.5]},{\"p\":[196.094,8,158.781],\"r\":[0,1.29524,0],\"n\":\"voxels.classic_barrel\",\"s\":[0.5,0.5,0.5]},{\"p\":[-122.89,8,192.355],\"r\":[0,1.43128,0],\"n\":\"voxels.crate_small\",\"s\":[0.5,0.5,0.5]},{\"p\":[68.1769,32,48.4396],\"r\":[0,1.23283,0],\"n\":\"voxels.spare_tire\",\"s\":[0.5,0.5,0.5]},{\"p\":[110.101,18,104.246],\"r\":[0,1.37939,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[135.431,24,353.715],\"r\":[0,0,0],\"n\":\"voxels.street_barrier_2\",\"s\":[0.5,0.5,0.5]},{\"p\":[155.392,24,352.951],\"r\":[0,1.13871,0],\"n\":\"voxels.street_barrier_2\",\"s\":[0.5,0.5,0.5]},{\"p\":[118.429,24,242.044],\"r\":[0,0,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[72.9663,22.9524,272.5],\"r\":[0,3.1377,0],\"n\":\"voxels.garage_door\",\"s\":[0.5,0.5,0.5]},{\"p\":[-189.181,32,378.719],\"r\":[0,0,0],\"n\":\"voxels.dumpster\",\"s\":[0.5,0.5,0.5]},{\"p\":[-89.7741,55.7656,399.489],\"r\":[0,0.0120837,0],\"n\":\"voxels.gate\",\"s\":[0.333328,0.347237,0.5]},{\"p\":[24.604,8,132.909],\"r\":[0,0,0],\"n\":\"voxels.crate_medium\",\"s\":[0.5,0.5,0.5]},{\"p\":[46.3335,8,122.91],\"r\":[0,0.950216,0],\"n\":\"voxels.crate_large\",\"s\":[0.5,0.5,0.5]},{\"p\":[66.9265,8,98.3201],\"r\":[0,0,0],\"n\":\"voxels.crate_medium\",\"s\":[0.5,0.5,0.5]}]")
+
+	local initProp = function(s, info)
+		s:SetParent(World)
+		s.Position = info.p
+		s.Rotation = info.r
+		s.Scale = info.s
+		s.Pivot = Number3(s.Width / 2, 0, s.Depth / 2)
+
+		require("hierarchyactions"):applyToDescendants(s, { includeRoot = true }, function(shape)
+			shape.Physics = PhysicsMode.StaticPerBlock
+			shape.CollisionGroups = Map.CollisionGroups
+		end)
+	end
+
+	for _,info in ipairs(savedObjects) do
+		local cachedObjects = {}
+		if not cachedObjects[info.n] then
+			Object:Load(info.n, function(s)
+				cachedObjects[info.n] = s
+				initProp(s, info)
+			end)
+		else
+			local s = Shape(cachedObjects[info.n], { includeChildren = true })
+			initProp(s, info)
+		end
+	end
+end
+
 Client.OnStart = function()
+	placeProps()
     -- Map
-    Map.Scale = 12
-	Map.Layers = { 1, 4 }
-    spawnPoints = {}
-    autoSpawnPoints:prepare(spawnPoints, SPAWN_BLOCK_COLOR)
+
+	generateMapFromChunks()
+    spawnPoints = JSON:Decode("[{\"p\":[-54.734,11.6904,62.8359],\"rY\":0.0126201},{\"p\":[-245.448,39.3373,98.7844],\"rY\":0.0605912},{\"p\":[-268.832,32.6757,224.197],\"rY\":1.5624},{\"p\":[-176.63,37.7461,281.024],\"rY\":5.91473},{\"p\":[-130.289,64.3296,454.234],\"rY\":4.13691},{\"p\":[103.866,46.8537,460.034],\"rY\":3.6675},{\"p\":[-13.5333,31.5645,352.71],\"rY\":3.22079},{\"p\":[153.182,28.8819,314.506],\"rY\":3.92754},{\"p\":[220.249,14.7999,196.709],\"rY\":3.44043},{\"p\":[153.557,34.7014,63.7065],\"rY\":0.420805},{\"p\":[76.2078,34.8703,59.8622],\"rY\":6.20929},{\"p\":[50.9595,10.5063,83.8885],\"rY\":6.12099},{\"p\":[-87.317,14.3838,180.542],\"rY\":1.61218}]")
 
     require("ambience"):set(ambience.dawn)
 
@@ -63,19 +122,19 @@ Client.OnStart = function()
  	           	end
  	       	end
  	       end
-		else
-			local localevent = require("localevent")
-			localevent:Listen(localevent.Name.AvatarLoaded, function()
-				for _,v in pairs(Player.equipments) do
-	 	       	v.IsHiddenSelf = true
- 	       		if v.attachedParts then
- 	       			for _,v2 in ipairs(v.attachedParts) do
- 	       				v2.IsHiddenSelf = true
- 	           		end
- 	       		end
- 	      	 end
-			end)
 		end
+
+		local localevent = require("localevent")
+		localevent:Listen(localevent.Name.AvatarLoaded, function()
+			for _,v in pairs(Player.equipments) do
+ 	       	v.IsHiddenSelf = true
+	       		if v.attachedParts then
+	       			for _,v2 in ipairs(v.attachedParts) do
+	       				v2.IsHiddenSelf = true
+	           		end
+	       		end
+	      	 end
+		end)
     end
 
     -- Player
@@ -98,8 +157,8 @@ Client.OnStart = function()
 
     dropPlayer = function()
         local randomSpawnPoint = spawnPoints[math.random(#spawnPoints)]
-        Player.Position = Number3(1,1,1) * Map.Scale / 2 + randomSpawnPoint.p
-        Player.Rotation = { 0, math.random() * 2 * math.pi, 0 }
+        Player.Position = Number3(randomSpawnPoint.p[1], randomSpawnPoint.p[2], randomSpawnPoint.p[3])
+        Player.Rotation = { 0, randomSpawnPoint.rY, 0 }
         Player.Velocity = { 0, 0, 0 }
     end
     
@@ -156,6 +215,7 @@ Client.OnStart = function()
 end
 
 Client.OnPlayerJoin = function(p)
+	p.Scale = 0.3
 	local bg
 	if p == Player then
 		local ui = require("uikit")
@@ -187,7 +247,7 @@ Client.AnalogPad = function(dx, dy)
 		return
 	end
     if dpadX ~= nil and dpadY ~= nil then
-        Player.Motion = (Player.Forward * dpadY + Player.Right * dpadX) * 50
+        Player.Motion = (Player.Forward * dpadY + Player.Right * dpadX) * 40
     end
 end
 
@@ -197,7 +257,7 @@ Client.DirectionalPad = function(x, y)
     if Player:isDead() or gsm.state == gsm.States.EndRound then
 		return
 	end
-    Player.Motion = (Player.Forward * y + Player.Right * x) * 50
+    Player.Motion = (Player.Forward * y + Player.Right * x) * 40
 end
 
 Client.OnChat = function(message)
@@ -236,23 +296,37 @@ Client.Tick = function(dt)
         dropPlayer()
         Player:TextBubble("💀 Oops!")
     end
+
+	-- auto jump
+	if Player.Motion.SquaredLength > 0 then
+		local d = Player.Motion:Copy()
+		d.Y = 0
+		d:Normalize()
+		local impact1 = Ray(Player.Position + Number3(0,0.1,0), d):Cast(Map.CollisionGroups)
+		local dist = 6.35 + MAP_SCALE * 0.5 -- player collider radius + half map block
+		if impact1 and impact1.Distance < dist then
+			local impact2 = Ray(Player.Position + Number3(0,MAP_SCALE * 1.5,0), d):Cast(Map.CollisionGroups)
+			if not impact2 or impact2.Distance > dist then
+				Player.Velocity.Y = 30
+			end
+		end
+	end
 end
 
 -- jump function, triggered with Action1
 Client.Action1 = function()
 	if gsm.state == gsm.States.EndRound or Player:isDead() then return end
     if Player.IsOnGround then
-        Player.Velocity.Y = 115
+        Player.Velocity.Y = 90
     end
 end
 
 Client.Action2 = function()
 	if gsm.state == gsm.States.EndRound then return end
     weapons:pressShoot()
-    if displayInstructions == true then
-        displayInstructions = false
-        instructions:hide()
-    end
+	if instructions:isVisible() then
+		instructions:hide()
+	end
 end
 
 Client.Action2Release = function()
@@ -311,6 +385,10 @@ end
 
 instructions.hide = function(self)
     if self.bg ~= nil then self.bg:hide() end
+end
+
+instructions.isVisible = function(self)
+    return self.bg and self.bg:isVisible()
 end
 
 indicatorsPool = {}
@@ -600,53 +678,6 @@ entityHPMetatable = {
 }
 setmetatable(entityHP, entityHPMetatable)
 
-local CRATE_COLOR = Color(129,88,54)
-local BARRELS_COLOR = Color(0,83,178)
-autoSpawnPoints = {
-    prepare = function(self, list, color)
-        for z=0,Map.Depth do
-            for y=0,Map.Height do
-                for x=0,Map.Width do
-                    local b = Map:GetBlock(x,y,z)
-					local c = b.Color
-                    if c == color then
-                        table.insert(list, {
-                            p = Number3(x,y,z) * Map.Scale
-                        })
-                        b:Remove()
-                    elseif c == CRATE_COLOR then
-						b:Remove()
-                    	local obj = Shape(Items.caillef.wooden_crate)
-                    	obj:SetParent(World)
-						obj.CollisionGroups = Map.CollisionGroups
-						obj.Friction = Map.Friction
-						obj.Bounciness = 0
-						obj.Pivot = Number3(obj.Width / 2, 0, obj.Depth / 2)
-                    	obj.Position = Number3(x,y,z) * Map.Scale + Number3(6,0,6)
-						obj.Scale = 0.55
-						obj.Scale.Y = 0.545
-                    elseif c == BARRELS_COLOR then
-						b:Remove()
-                    	local obj = Shape(Items.caillef.barrels)
-                    	obj:SetParent(World)
-						obj.type = "barrels"
-						obj.CollisionGroups = Map.CollisionGroups
-						obj.Physics = PhysicsMode.StaticPerBlock
-						obj.Friction = Map.Friction
-						obj.Bounciness = 0
-						obj.Pivot = Number3(10,0,10)
-						obj.Rotation.Y = math.random() * math.pi * 2
-                    	obj.Position = Number3(x,y,z) * Map.Scale + Number3(6,0,6)
-                    elseif c == Color(255,18,0) then
-                        -- deprecated, red blocks must be removed from the item map and remove this condition
-                        b:Remove()
-					end
-                end
-            end
-        end
-    end
-}
-
 local displayedWeapon = {}
 weapons = {}
 weaponsMetatable = {
@@ -675,14 +706,14 @@ weaponsMetatable = {
                 local rot = Number3(data.rot._x,data.rot._y,data.rot._z)
                 self:placeNextBulletImpactDecal(pos, rot)
             end)
-            Object:Load("caillef.bullet_impact_decal", function(obj)
+            Object:Load("voxels.bullethole_large", function(obj)
                 local list = {}
                 for i=1,self.nbMaxBulletImpactDecals do
                     local d = Shape(obj)
-                    d.Pivot = Number3(d.Width / 2, d.Height / 2, d.Depth / 2)
+                    d.Pivot = {d.Width * 0.5, d.Height * 0.5, d.Depth * 0.5}
                     d:SetParent(World)
                     d.Scale = 0.2
-                    d.Scale.Z = 0.5
+                    d.Scale.Z = 0.2 + i * 0.001 -- to avoid z fighting
                     d.Physics = PhysicsMode.Disabled
                     d.IsHidden = true
                     table.insert(list, d)
@@ -744,6 +775,8 @@ weaponsMetatable = {
 			self.entityHP:toggleUI(not self.uiHidden)
 		end,
         placeNextBulletImpactDecal = function(self, pos, rot)
+        	if not self.bullet_impact_decals then return end -- bullet_impact_decals may not be loaded yet
+			if not self.next_bidecal then self.next_bidecal = 0 end
             local list = self.bullet_impact_decals
             local d = list[self.next_bidecal]
             self.next_bidecal = self.next_bidecal + 1
@@ -753,7 +786,7 @@ weaponsMetatable = {
             if d.timer then d.timer:Cancel() end
             d.IsHidden = false
             d.Rotation = rot
-            d.Position = pos + d.Forward * 0.1 + d.Forward * math.random() * 0.1
+            d.Position = pos
             d.timer = Timer(self.decalDuration, function()
                 d.IsHidden = true
                 d.timer = nil
@@ -773,7 +806,7 @@ weaponsMetatable = {
                 p.muzzleFlashTimer = nil
             end)
 
-            p.weapon.LocalRotation.X = -0.1
+            p.weapon.LocalRotation.X = -0.1 * (p.weapon.mirror and -1 or 1)
             Timer(0.05, function()
                 p.weapon.LocalRotation.X = 0
             end)
@@ -853,6 +886,24 @@ weaponsMetatable = {
             	self:updateAmmoUI()
             end)
 		end,
+		updateUI = function(self)
+			if not self.weaponInfo then return end
+			-- display the weapon next to the weapon name
+			if self.displayedWeapon then self.displayedWeapon:remove() end
+			if self.templates[self.weaponInfo.item] == nil then return end
+
+            local ui = require("uikit")
+            local displayedWeapon = ui:createShape(Shape(self.templates[self.weaponInfo.item]), { spherized = true })
+			self.displayedWeapon = displayedWeapon
+      	  displayedWeapon.parentDidResize = function()
+  		      displayedWeapon.Height = self.weaponNameText.Height * 2
+      		  displayedWeapon.LocalPosition =  self.weaponNameText.pos + Number3(self.weaponNameText.Width + 5, - self.weaponNameText.Height / 2, 0)
+     	   end
+     	   displayedWeapon.LocalRotation.Y = math.pi / 2
+     	   displayedWeapon:parentDidResize()
+	        self:updateAmmoUI()
+	        self:updateNameUI()
+		end,
         _tick = function(self, dt)
             if self.cooldown > 0 then
 				self.cooldown = self.cooldown - dt
@@ -905,13 +956,11 @@ weaponsMetatable = {
             if impact and impact.Object.CollisionGroups == Map.CollisionGroups then
 				local impact = Camera:CastRay(impact.Object, Player)
                 local pos = Camera.Position + Camera.Forward * impact.Distance
-                local rot = Number3(0,0,0)
-                if impact.FaceTouched == Face.Top then rot.X = math.pi / 2 end
-                if impact.FaceTouched == Face.Bottom then rot.X = -math.pi / 2 end
-                if impact.FaceTouched == Face.Left then rot.Y = math.pi / 2 end
-                if impact.FaceTouched == Face.Right then rot.Y = -math.pi / 2 end
-                if impact.FaceTouched == Face.Front then rot.Y = 0 end
-                if impact.FaceTouched == Face.Back then rot.Y = math.pi end
+                local rot = impact.Object.Rotation:Copy()
+                if impact.FaceTouched == Face.Top then rot = rot + {math.pi * 0.5, 0, 0} end
+                if impact.FaceTouched == Face.Bottom then rot = rot + {math.pi * -0.5, 0, 0} end
+                if impact.FaceTouched == Face.Left then rot = rot + {0, math.pi * -0.5, 0} end
+                if impact.FaceTouched == Face.Right then rot = rot + {0, math.pi * 0.5, 0} end
 				if impact.Object.type ~= "barrels" then
 	                self:placeNextBulletImpactDecal(pos, rot)
 	                multi:playerAction("bidecal", { pos=pos, rot=rot })
@@ -944,26 +993,6 @@ weaponsMetatable = {
                 multi:playerAction("dmg", data)
                 self:damage(data)
             end
-
-			if impact.mode == "Ayrobot" then -- ayrobots
-                local data = {
-                    t = impact.Object.botId,
-					type = "bot",
-                    s = Player.ID,
-                    dmg = self.currentWeapon.dmg,
-                    mult = impact.head and self.headshotMultiplier or 1
-                }
-                self.hitmarkerSFX:Stop()
-                self.hitmarkerSFX:Play()
-                self.hitMarker:show()
-                UI.Crosshair = false
-                Timer(0.1, function()
-                    self.hitMarker:hide()
-                    UI.Crosshair = true
-                end)
-                multi:playerAction("dmg", data)
-                self:damage(data)
-			end
 
             if self.currentWeapon.mode == "manual" then self.shooting = false end
         end,
@@ -1028,55 +1057,43 @@ weaponsMetatable = {
                 multi:playerAction("changeWeapon", { id = id })
             end
 			p.weaponId = id
-			if self.templates[weaponInfo.item] then
-				local weapon =  Shape(self.templates[weaponInfo.item])
-				weapon.Pivot = self.templates[weaponInfo.item].Pivot
-				self:_setWeapon(p, weapon, weaponInfo, forceNotFPS)
-
-                -- display the weapon next to the weapon name
-                for _, i in ipairs(displayedWeapon) do
-                    Camera:RemoveChild(i)
-                end
-
-                displayedWeapon = {}
-                ui = require("uikit")
-                local displayedWeapon = ui:createShape(Shape(self.templates[weaponInfo.item]))
-                displayedWeapon.parentDidResize = function()
-                    displayedWeapon.Height = weaponName.Height
-                    displayedWeapon.Width = weaponName.Height
-                    if Screen.Width > Screen.Height then
-                       displayedWeapon.LocalPosition = { 190 - displayedWeapon.Width , Screen.Height / 3, 0 }
-                    else
-                        displayedWeapon.LocalPosition = { 140 - displayedWeapon.Width, Screen.Height / 3, 0 }
-                    end
-                    displayedWeapon.LocalRotation.Y = 180
-                end
-                displayedWeapon:parentDidResize()
+			if not self.templates[weaponInfo.item] then
+	            Object:Load(weaponInfo.item, function(weapon)
+					self:_setWeapon(p, weapon, weaponInfo, forceNotFPS)
+	            end)
 				return
 			end
-            Object:Load(weaponInfo.item, function(weapon)
-				self:_setWeapon(p, weapon, weaponInfo, forceNotFPS)
-            end)
+		
+			local weapon = Shape(self.templates[weaponInfo.item])
+			weapon.Pivot = self.templates[weaponInfo.item].Pivot
+			self:_setWeapon(p, weapon, weaponInfo, forceNotFPS)
         end,
 		_setWeapon = function(self, p, weapon, weaponInfo, forceNotFPS)
 			if p.weapon then
                 p.weapon:RemoveFromParent()
             end
 			weapon.muzzleFlashY = weaponInfo.muzzleFlashY
+			weapon.mirror = weaponInfo.mirror
             weapon.Physics = PhysicsMode.Disabled
             p.weapon = weapon
             if p == Player and not forceNotFPS then
                 -- attach weapon
                 weapon:SetParent(Camera)
-				weapon.Scale = weaponInfo.scale or 1
+				weapon.Scale = (weaponInfo.scale or 1)
+				if weaponInfo.mirror then
+					weapon.LocalRotation.Y = weapon.LocalRotation.Y + math.pi
+				end
                 if Screen.Width > Screen.Height then
-                    weapon.LocalPosition = Number3(5,-5,10)
+                    weapon.LocalPosition = Number3(5,-4,10)
                 else
                     weapon.LocalPosition = Number3(3,-6,10)
                 end
+				self.weaponInfo = weaponInfo
+				self:updateUI()
             else
                 p:EquipRightHand(weapon)
-				weapon.Scale = weaponInfo.scale or 1
+				weapon.Scale = (weaponInfo.scale or 1)
+				weapon.LocalPosition.X = weapon.LocalPosition.X - 3
                 p.RightArm.IgnoreAnimations = true
                 p.RightHand.IgnoreAnimations = true
                 p.RightArm.LocalRotation = { -math.pi / 2, -math.pi / 2, 0 }
@@ -1751,4 +1768,3 @@ addAmmoIndication = function(numberAmmo, weaponNameText)
         end
     end
 end
-
