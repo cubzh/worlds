@@ -1,27 +1,30 @@
 
 Config = {
-	Items = { "caillef.wooden_crate", "caillef.barrels", "xavier.damage_indicator", "caillef.roboteye", "k40s.gun_bullet", "voxels.dustzh_chunk_1", "voxels.dustzh_chunk_2", "voxels.dustzh_chunk_3", "voxels.dustzh_chunk_4", "voxels.dustzh_chunk_5" }
+	Items = { "caillef.wooden_crate", "caillef.barrels", "xavier.damage_indicator", "caillef.roboteye", "k40s.gun_bullet", "voxels.dustzh_chunk_1", "voxels.dustzh_chunk_2", "voxels.dustzh_chunk_3", "voxels.dustzh_chunk_4", "voxels.dustzh_chunk_5", "voxels.flash_1" }
 }
 
--- TODO
---- [ ] spawnpoints
+
+-- CONSTANTS 
 
 local MAP_SCALE = 2
 local DEBUG = false -- starts with a single player
 local SOUND = true
-local ROUND_DURATION = 240
+local ROUND_DURATION = 120
 local SPAWN_BLOCK_COLOR = Color(136,0,252)
 local MAX_NB_KILLS_END_ROUND = 40
 local weaponName = nil
 
+local UI_MARGIN = 4
+
+
 Config.ConstantAcceleration.Y = -300
 
 local weaponsList = {
-	{ name="Rifle", item="voxels.assault_rifle", cooldown=0.12, mode="auto", dmg=15, ammo=12, muzzleFlashY=-1, scale=0.4, mirror=true },
-	{ name="Pistol", item="voxels.silver_pistol", cooldown=0.2, mode="manual", dmg=25, ammo=6, scale=0.4, mirror=true },
-	{ name="P90", item="voxels.p90", cooldown=0.06, mode="auto", dmg=7, ammo=22, scale=0.4, mirror=true },
-	{ name="Deagle", item="voxels.golden_pistol", cooldown=0.4, mode="manual", dmg=40, ammo=4, scale=0.4, mirror=true },
-	{ name="RailCow", item="jacksbertox.milk_cannon_triple", scale=0.3, sfx="cow_", cooldown=1, mode="auto", dmg=100, ammo=10 },
+	{ name="Rifle", item="voxels.assault_rifle", cooldown=0.12, mode="auto", dmg=15, ammo=12, muzzleFlashY=7, scale=0.4, mirror=true },
+	{ name="Pistol", item="voxels.silver_pistol", cooldown=0.2, mode="manual", dmg=25, ammo=6, muzzleFlashY=7, scale=0.4, mirror=true },
+	{ name="P90", item="voxels.p90", cooldown=0.06, mode="auto", dmg=7, ammo=22, muzzleFlashY=7, scale=0.4, mirror=true },
+	{ name="Deagle", item="voxels.golden_pistol", cooldown=0.4, mode="manual", dmg=40, ammo=4, scale=0.4, muzzleFlashY=7, mirror=true },
+	-- { name="RailCow", item="jacksbertox.milk_cannon_triple", scale=0.3, sfx="cow_", cooldown=1, mode="auto", dmg=100, ammo=10 },
 	--{ name="Bluecar", item="caillef.bluecar", scale=0.5, sfx="carhonk_", cooldown=1, mode="auto", dmg=100, ammo=10 },
 }
 
@@ -96,9 +99,15 @@ Client.OnStart = function()
 	generateMapFromChunks()
 	spawnPoints = JSON:Decode("[{\"p\":[-54.734,11.6904,62.8359],\"rY\":0.0126201},{\"p\":[-245.448,39.3373,98.7844],\"rY\":0.0605912},{\"p\":[-268.832,32.6757,224.197],\"rY\":1.5624},{\"p\":[-176.63,37.7461,281.024],\"rY\":5.91473},{\"p\":[-130.289,64.3296,454.234],\"rY\":4.13691},{\"p\":[103.866,46.8537,460.034],\"rY\":3.6675},{\"p\":[-13.5333,31.5645,352.71],\"rY\":3.22079},{\"p\":[153.182,28.8819,314.506],\"rY\":3.92754},{\"p\":[220.249,14.7999,196.709],\"rY\":3.44043},{\"p\":[153.557,34.7014,63.7065],\"rY\":0.420805},{\"p\":[76.2078,34.8703,59.8622],\"rY\":6.20929},{\"p\":[50.9595,10.5063,83.8885],\"rY\":6.12099},{\"p\":[-87.317,14.3838,180.542],\"rY\":1.61218}]")
 
+	-- DEBUG (spawn all players at the same position)
+	-- spawnPoints = JSON:Decode("[{\"p\":[-54.734,11.6904,62.8359],\"rY\":0.0126201}]")
+
 	require("ambience"):set(ambience.dawn)
 
-	-- Modules
+	-- MODULES
+
+	ease = require("ease")
+	ui = require("uikit")
 	multi = require("multi")
 	multi.teleportTriggerDistance = 100
 
@@ -107,7 +116,6 @@ Client.OnStart = function()
 	weapons:setPlayerMaxHP(100)
 
 	victoryPodium:init()
-	uiRoundScore:init()
 	uiRoundDuration:init()
 	killfeed:init()
 
@@ -181,19 +189,24 @@ Client.OnStart = function()
 	end
 	gsm.clientRoundOnStart = function()
 		killfeed:clearEntries()
-		weapons:toggleUI(true)
+
+		playerInfo:show()
+
 		cameraCustomFirstPerson()
 		for _,p in ipairs(gsm.playersInRound) do
 			respawn(p)
 			p.nbKills = 0
 		end
-		uiRoundScore:update(gsm.playersInRound, "nbKills")
+
+		playerInfo:setPlayersInRound(gsm.playersInRound)
 
 		uiRoundDuration:update(Time.UnixMilli() + ROUND_DURATION * 1000)
 	end
 	gsm.clientEndRoundOnStart = function()
 		weapons.shooting = false
-		weapons:toggleUI(false)
+
+		playerInfo:hide()
+
 		killfeed:clearEntries()
 		local sortedPlayers = {}
 		for _,v in ipairs(gsm.playersInRound) do
@@ -214,15 +227,18 @@ Client.OnStart = function()
 	end
 
 	gsm.clientRoundPlayersUpdate = function(gsm, list)
-		uiRoundScore:update(gsm.playersInRound, "nbKills")
+		playerInfo:setPlayersInRound(gsm.playersInRound)
 	end
+
+	-- UI
+	playerInfo:show()
+
 end
 
 Client.OnPlayerJoin = function(p)
 	p.Scale = 0.3
 	local bg
 	if p == Player then
-		local ui = require("uikit")
 		bg = ui:createFrame(Color.Black)	
 		bg.Width = Screen.Width
 		bg.Height = Screen.Height
@@ -286,7 +302,8 @@ Client.DidReceiveEvent = function(event)
 		local source = Players[math.floor(event.p)]
 		if not source then return end
 		source.nbKills = event.nb
-		uiRoundScore:update(gsm.playersInRound, "nbKills")
+
+		playerInfo:setPlayersInRound(gsm.playersInRound)
 	end
 	if event.action == "roundEndAt" then
 		uiRoundDuration:update(event.t)
@@ -338,6 +355,16 @@ end
 
 Client.Action3Release = function()
 	weapons:reload()
+
+	-- if debugW == nil then
+	-- 	debugW = 1
+	-- else
+	-- 	debugW = debugW + 1
+	-- 	if debugW > #weaponsList then debugW = 1 end
+	-- end
+	-- weapons:setWeapon(Player, debugW)
+
+	-- addDamageIndicator(Player.Position + {100, 0, 100})
 end
 
 
@@ -347,7 +374,6 @@ instructions = {
 
 instructions.display = function(self)
 	if self.bg == nil then
-		local ui = require("uikit")
 		local bg = ui:createFrame(Color(0,0,0,0.5))
 
 		local welcomeText = ui:createText("Welcome to Dustzh!", Color.White)
@@ -396,27 +422,27 @@ end
 
 indicatorsPool = {}
 addDamageIndicator = function(shooterPos)
+
 	local displayedTime = 0.5
-	local depth = 3.0
 	local radius = 15.0
 	local pos = Player:PositionWorldToLocal(shooterPos)
 	local angle = math.atan(pos.X, pos.Z)
 
-	local damageIndicator = nil
-	if #indicatorsPool == 0 then
+	local damageIndicator = table.remove(indicatorsPool)
+
+	if damageIndicator == nil then
 		damageIndicator = Shape(Items.xavier.damage_indicator)
-		damageIndicator.Scale = 0.02
+		damageIndicator.Scale = 0.1
+		damageIndicator.IsUnlit = true
 		damageIndicator.Pivot = damageIndicator:LocalToBlock(Number3(0, radius, 0))
-	else
-		damageIndicator = indicatorsPool[#indicatorsPool]
-		indicatorsPool[#indicatorsPool] = nil
+		damageIndicator.Physics = PhysicsMode.Disabled
 	end
+
 	Camera:AddChild(damageIndicator)
-	damageIndicator.Physics = PhysicsMode.Disabled
-	damageIndicator.LocalPosition = Number3(0, 0, depth)
+	damageIndicator.LocalPosition = Number3(0, 0, 5)
 	damageIndicator.LocalRotation.Z = -angle + math.pi
 
-	local t = Timer(displayedTime, function()
+	Timer(displayedTime, function()
 		damageIndicator:SetParent(nil)
 		table.insert(indicatorsPool, damageIndicator)
 	end)
@@ -576,51 +602,6 @@ end)
 entityHP = {}
 entityHPMetatable = {
 	__index = {
-		_initUI = function(module, entity)
-			local ui = require("uikit")
-			local bg = ui:createFrame(Color.Black)
-			module.uiBg = bg
-			module.uiHidden = false
-			local progressBar = ui:createFrame(Color.Red)
-			progressBar:setParent(bg)
-			local progressBarText = ui:createText("100/100", Color.White)
-			progressBarText:setParent(bg)
-
-			bg.update = function()
-				progressBar.Width = bg.Width * (Player.hp / Player.maxHP)
-				progressBar.Height = bg.Height
-				progressBarText.Text = math.floor(Player.hp).."/"..math.floor(Player.maxHP)
-				progressBarText.pos = { bg.Width / 2 - progressBarText.Width / 2, bg.Height / 2 - progressBarText.Height / 2, 0 }
-			end
-
-			bg.parentDidResize = function()
-				if Screen.Width > Screen.Height then
-					bg.Height = 30
-					bg.Width = 180
-				else
-					bg.Height = 20
-					bg.Width = 120
-				end
-				local pos = Number3(10, Screen.Height / 3 + bg.Height, 0)
-				bg.pos = pos
-				bg:update()
-			end
-			bg:parentDidResize()
-			Player.hpBar = bg
-		end,
-		toggleUI = function(self, show)
-			if show == nil then
-				self.uiHidden = not self.uiHidden
-			else
-				self.uiHidden = not show
-			end
-
-			if self.uiHidden then
-				self.uiBg:hide()
-			else
-				self.uiBg:show()
-			end
-		end,
 		showHitPoints = function(module, entity, hp, special)
 			local t = Text()
 			t.Text = hp
@@ -653,7 +634,7 @@ entityHPMetatable = {
 				if self.hp <= 0 then
 					self.hp = 0
 				end
-				if self == Player then Player.hpBar:update() end
+				if self == Player then playerInfo:update() end
 				if self ~= Player then
 					module:showHitPoints(entity, -hp, special)
 				end
@@ -663,14 +644,14 @@ entityHPMetatable = {
 				if entity.hp > entity.maxHP then
 					entity.hp = entity.maxHP
 				end
-				if self == Player then Player.hpBar:update() end
+				if self == Player then playerInfo:update() end
 				if self ~= Player then
 					module:showHitPoints(entity, hp)
 				end
 			end
 			entity.resetHP = function(self)
 				self.hp = self.maxHP
-				if self == Player then Player.hpBar:update() end
+				if self == Player then playerInfo:update() end
 			end
 			entity.isDead = function(self)
 				return self.hp <= 0
@@ -678,28 +659,23 @@ entityHPMetatable = {
 			entity.isAlive = function(self)
 				return not self:isDead()
 			end
-
-			if entity == Player then
-				module:_initUI(entity)
-			end
 		end,
 	}
 }
 setmetatable(entityHP, entityHPMetatable)
 
-local displayedWeapon = {}
+-- local displayedWeapon = {}
 weapons = {}
 weaponsMetatable = {
 	__index = {
 		maxHP = 100,
 		cooldown = 0,
+		ammo = 0,
 		hitmarkerVolume = 0.6, -- todo add this is UI settings
 		headshotMultiplier = 1.5,
 		nbMaxBulletImpactDecals = 100, -- max nb of decal at the same time
 		decalDuration = 10, -- nb seconds before a decal is removed
 		init = function(self)
-			self.particles = require("particles")
-			local multi = require("multi")
 			self.entityHP = entityHP
 			multi:registerPlayerAction("dmg", function(_, data)
 				self:damage(data)
@@ -746,7 +722,6 @@ weaponsMetatable = {
 				s:AddBlock(hitMarkerColor,-i,-i,0)
 			end
 			s.Pivot = Number3(0.5,0.5,0.5)
-			local ui = require("uikit")
 			Pointer:Hide()
 			UI.Crosshair = true
 			local hitMarker = ui:createShape(s)
@@ -754,34 +729,10 @@ weaponsMetatable = {
 			hitMarker.pos = { Screen.Width / 2 - hitMarker.Width / 2, Screen.Height / 2 - hitMarker.Height / 2, 0 }
 			hitMarker:hide()
 			self.hitMarker = hitMarker
-
-			weaponName = ui:createText("weaponsName", Color.Black)
-			self.ammoCountText = ammoCount
-			self.weaponNameText = weaponName
-			weaponName.parentDidResize = function()
-				self.weaponNameText.pos = { 30, Screen.Height / 3, 0 }
-			end
-			weaponName:parentDidResize()
-			self:updateAmmoUI()
-			self:updateNameUI()
+			
+			playerInfo:update()
 
 			self.templates = {}
-		end,
-		updateAmmoUI = function(self)
-			if self.ammo == nil then return end
-			addAmmoIndication(math.floor(self.ammo), self.weaponNameText)
-		end,
-		updateNameUI = function(self)
-			if self.weaponName == nil then return end
-			self.weaponNameText.Text = self.weaponName
-		end,
-		toggleUI = function(self, show)
-			if show == nil then
-				self.uiHidden = not self.uiHidden
-			else
-				self.uiHidden = not show
-			end
-			self.entityHP:toggleUI(not self.uiHidden)
 		end,
 		placeNextBulletImpactDecal = function(self, pos, rot)
 			if not self.bullet_impact_decals then return end -- bullet_impact_decals may not be loaded yet
@@ -809,21 +760,40 @@ weaponsMetatable = {
 			end
 			p.muzzleFlash.IsHidden = false
 			p.muzzleFlash:SetParent(p.weapon)
-			p.muzzleFlash.LocalPosition = Number3(p.weapon.Width / 2 + 0.3,p.weapon.muzzleFlashY or 0.5,p.weapon.Depth)
+			p.muzzleFlash.LocalRotation = {math.random() * math.pi * 2, math.random() * math.pi * 2, 0}
+			p.muzzleFlash.LocalPosition = Number3(p.weapon.Width * 0.5,
+													p.weapon.muzzleFlashY or p.weapon.Height * 0.5,
+													- 3) - p.weapon.Pivot
+
+			-- p.muzzleFlashTimer = Timer(2, function() -- debug
 			p.muzzleFlashTimer = Timer(0.03, function()
 				p.muzzleFlash.IsHidden = true
 				p.muzzleFlashTimer = nil
 			end)
 
-			p.weapon.LocalRotation.X = -0.1 * (p.weapon.mirror and -1 or 1)
-			Timer(0.05, function()
-				p.weapon.LocalRotation.X = 0
-			end)
+			if p == Player then
+				if p.weapon.rot then
+					p.weapon.LocalRotation = p.weapon.rot + {-0.1 * (p.weapon.mirror and -1 or 1), 0, 0}
+					Timer(0.05, function()
+						p.weapon.LocalRotation = p.weapon.rot
+					end)
+				end
+			else
+				p.RightArm.LocalRotation = p.armRot + {-math.rad(15), 0, 0}
+				Timer(0.05, function()
+					p.RightArm.LocalRotation = p.armRot
+				end)
+			end
 
 			if self.currentWeapon.sfx then
 				sfx(self.currentWeapon.sfx.."1", p.weapon.Position, 0.3)
 				sfx("small_explosion_2", p.weapon.Position, 0.3)
 				return
+			end
+
+			if p == Player then
+				-- TODO: add this for other players
+				ribbonTrail.add(p.muzzleFlash.Position, Camera.Position + Camera.Forward * 100)
 			end
 
 			-- SFX
@@ -851,18 +821,16 @@ weaponsMetatable = {
 				table.insert(p.dmgAs, as)
 			end
 
-			local b = MutableShape()
-			b:AddBlock(Color.White,0,0,0)
-			b:AddBlock(Color.White,1,0,0)
-			b:AddBlock(Color.White,-1,0,0)
-			b:AddBlock(Color.White,0,1,0)
-			b:AddBlock(Color.White,0,-1,0)
-			b:AddBlock(Color.White,0,0,1)
-			b.Scale = 1
-			b.Pivot = { 0.5, 0.5, 0.5 }
-			b.IsHidden = true
-			b.Physics = PhysicsMode.Disabled
-			p.muzzleFlash = b
+			local flash = Shape(Items.voxels.flash_1)
+			flash.IsUnlit = true
+			flash.Scale = 1
+			local s = math.max(flash.Width, flash.Height, flash.Depth)
+			flash.radius = s * 0.5
+			flash.Pivot = { flash.Width * 0.5, flash.Height * 0.5, flash.Depth * 0.5 }
+			flash.IsHidden = true
+			flash.Physics = PhysicsMode.Disabled
+
+			p.muzzleFlash = flash
 
 			self.entityHP:setupEntity(p, self.maxHP) -- add hp, maxHP, and functions damage, heal, resetHP, isDead and isAlive
 			self:setWeapon(p, 1)
@@ -883,35 +851,18 @@ weaponsMetatable = {
 			local tmpPos = Player.weapon.LocalPosition:Copy()
 			local tmpRot = Player.weapon.LocalRotation:Copy()
 
-			require("ease"):outBack(Player.weapon, 1).LocalPosition = tmpPos + Number3(0,-3,0)
-			require("ease"):outBack(Player.weapon, 1).LocalRotation = tmpRot + Number3(0.9,0,0)
+			ease:outBack(Player.weapon, 1).LocalPosition = tmpPos + Number3(0,-3,0)
+			ease:outBack(Player.weapon, 1).LocalRotation = tmpRot + Number3(0.9,0,0)
 			Timer(1, function()
-				require("ease"):outBack(Player.weapon, 1).LocalPosition = tmpPos
-				require("ease"):outBack(Player.weapon, 1).LocalRotation = tmpRot
+				ease:outBack(Player.weapon, 1).LocalPosition = tmpPos
+				ease:outBack(Player.weapon, 1).LocalRotation = tmpRot
 			end)
 			Timer(2, function()
 				self.reloading = false
 				self.ammo = self.maxAmmo
-				self:updateAmmoUI()
+				
+				playerInfo:update()
 			end)
-		end,
-		updateUI = function(self)
-			if not self.weaponInfo then return end
-			-- display the weapon next to the weapon name
-			if self.displayedWeapon then self.displayedWeapon:remove() end
-			if self.templates[self.weaponInfo.item] == nil then return end
-
-			local ui = require("uikit")
-			local displayedWeapon = ui:createShape(Shape(self.templates[self.weaponInfo.item]), { spherized = true })
-			self.displayedWeapon = displayedWeapon
-	  	  displayedWeapon.parentDidResize = function()
-  			  displayedWeapon.Height = self.weaponNameText.Height * 2
-	  		  displayedWeapon.LocalPosition =  self.weaponNameText.pos + Number3(self.weaponNameText.Width + 5, - self.weaponNameText.Height / 2, 0)
-	 	   end
-	 	   displayedWeapon.LocalRotation.Y = math.pi / 2
-	 	   displayedWeapon:parentDidResize()
-			self:updateAmmoUI()
-			self:updateNameUI()
 		end,
 		_tick = function(self, dt)
 			if self.cooldown > 0 then
@@ -927,7 +878,7 @@ weaponsMetatable = {
 				return
 			end
 			self.ammo = self.ammo - 1
-			self:updateAmmoUI()
+			playerInfo:update()
 
 			if self.ammo == 0 then
 				self:reload()
@@ -1061,8 +1012,9 @@ weaponsMetatable = {
 				self.maxAmmo = weaponInfo.ammo
 				self.ammo = weaponInfo.ammo
 				self.weaponName = weaponInfo.name
-				self:updateAmmoUI()
-				self:updateNameUI()
+				
+				playerInfo:update()
+				
 				multi:playerAction("changeWeapon", { id = id })
 			end
 			p.weaponId = id
@@ -1089,23 +1041,30 @@ weaponsMetatable = {
 				-- attach weapon
 				weapon:SetParent(Camera)
 				weapon.Scale = (weaponInfo.scale or 1)
+				weapon.rot = Number3(0,0,0)
 				if weaponInfo.mirror then
-					weapon.LocalRotation.Y = weapon.LocalRotation.Y + math.pi
+					weapon.rot.Y = weapon.rot.Y + math.pi
 				end
+				weapon.LocalRotation = weapon.rot
+
 				if Screen.Width > Screen.Height then
 					weapon.LocalPosition = Number3(5,-4,10)
 				else
 					weapon.LocalPosition = Number3(3,-6,10)
 				end
 				self.weaponInfo = weaponInfo
-				self:updateUI()
+
+				playerInfo:update()
 			else
 				p:EquipRightHand(weapon)
 				weapon.Scale = (weaponInfo.scale or 1)
 				weapon.LocalPosition.X = weapon.LocalPosition.X - 3
 				p.RightArm.IgnoreAnimations = true
 				p.RightHand.IgnoreAnimations = true
-				p.RightArm.LocalRotation = { -math.pi / 2, -math.pi / 2, 0 }
+				p.armRot = Number3(-math.pi * 0.4,0, -math.pi * 0.5)
+				p.RightArm.LocalRotation = p.armRot
+				p.handRot = Number3(0,math.rad(-20),0)
+				p.RightHand.LocalRotation = p.handRot
 			end
 		end,
 		setPlayerMaxHP = function(self, hp)
@@ -1162,7 +1121,6 @@ uiRoundDuration._refresh = function(self)
 end
 	
 uiRoundDuration.init = function(self)
-	local ui = require("uikit")
 
 	local text = ui:createText("End in 0:00")
 	text.LocalPosition = Number3(4,3,0)
@@ -1195,78 +1153,70 @@ uiRoundDuration.update = function(self, endTimeMs)
 	self:_refresh()
 end
 	
+------------------------------------
+-- Score Board (uikit component)
+-- To displays live scores during the round.
+------------------------------------
 
-uiRoundScore = {}
-local uiRoundScoreMetatable = {
-	__index = {
-		_isInit = false,
-		init = function(self)
-			local ui = require("uikit")
-			if self._isInit then return end
+scoreBoard = {}
 
-			local bg = ui:createFrame(Color(0,0,0,0))
-			bg:setParent(ui.rootFrame)
-			bg.Width = 150
-			bg.Height = 500
-			self.bg = bg
-			bg.IsHidden = true
+scoreBoard.create = function(self)
+	local node = ui:createNode()
 
-			self._isInit = true
-		end,
-		_refreshUI = function(self)
-			local sortEntries = self:_sortByKillsDesc(self.entries)
-			local widerTextWidth = 0
-			for k,t in ipairs(sortEntries) do
-				t.Text = t.player.Username.."   "..tostring(t.player[self.scoreKey])
-				t.LocalPosition = Number3(3, (k-1) * (t.Height + 2), 0)
-				t.LocalPosition.Z = -1
-				if t.Width > widerTextWidth then
-					widerTextWidth = t.Width
-				end
-			end
-			self.bg.Height = #self.players * (sortEntries[1].Height + 2)
-			self.bg.Width = widerTextWidth + 10
-			self.bg.parentDidResize = function()
-				self.bg.LocalPosition = { Screen.SafeArea.Left + 5, Screen.Height - Screen.SafeArea.Top - (self.bg.Height + 5), 0 }
-			end
-			self.bg.parentDidResize()
-		end,
-		_sortByKillsDesc = function(self,arr)
-			local arrCopy = {}
-			for i,v in ipairs(arr) do
-				table.insert(arrCopy,v)
-				v.player[self.scoreKey] = v.player[self.scoreKey] or 0
-			end
-			table.sort(arrCopy, function(a, b) 
-				return a.player[self.scoreKey] < b.player[self.scoreKey]
-			end)
-			return arrCopy
-		end,
-		update = function(self, players, scoreKey)
-			self.bg.IsHidden = false
+	local _scoreKey = "kills"
+	local _players = {}
+	local _labels = {}
 
-			self.players = players
-			self.scoreKey = scoreKey
+	-- scoreKey: key where to find score within each player
+	node.setPlayers = function(self, players, scoreKey)
+		_scoreKey = scoreKey
+		_players = players
 
-			if self.entries and #self.entries > 0 then
-				for k,v in ipairs(self.entries) do
-					v:remove()
-				end
-			end
-			self.entries = {}
-			for k,v in ipairs(players) do
-				local nameUI = require("uikit"):createText(v.Username.." 0")
-				nameUI:setParent(self.bg)
-				nameUI.player = v
-				--nameUI.color = v == Player and Color.Green or Color.White
-				nameUI.color = Color.White
-				table.insert(self.entries, nameUI)
-			end
-			self:_refreshUI()
+		while #_players > #_labels do
+			local label = ui:createText("", Color.White, "small")
+			label:setParent(node)
+			table.insert(_labels, label)
 		end
-	}
-}
-setmetatable(uiRoundScore,uiRoundScoreMetatable)
+
+		for i, label in ipairs(_labels) do 
+			if i <= #_players then label:show() else label:hide() end
+		end
+
+		self:update()
+	end
+
+	node.update = function(self)
+		-- SORT
+		local arr = {}
+		for i,player in ipairs(_players) do
+			table.insert(arr, {name = player.Username, score = player[_scoreKey] or 0})
+		end
+
+		table.sort(arr, function(a, b) return a.score < b.score end)
+
+		-- DISPLAY
+		for i, entry in ipairs(arr) do
+			_labels[i].Text = entry.name .. " " .. entry.score
+			_labels[i].pos.X = 0
+			if i == 1 then
+				_labels[i].pos.Y = 0
+			else
+				_labels[i].pos.Y = _labels[i - 1].pos.Y + _labels[i - 1].Height + UI_MARGIN
+			end
+		end
+	end
+
+	node._height = function(self) 
+		if not _labels[1] then return 0 end
+		return #_players * (_labels[1].Height + UI_MARGIN) - UI_MARGIN 
+	end
+
+	return node
+end
+
+------------------
+-- VICTORY PODIUM
+------------------
 
 victoryPodium = {}
 local victoryPodiumMetatable = {
@@ -1487,6 +1437,10 @@ local victoryPodiumMetatable = {
 	},
 }
 setmetatable(victoryPodium, victoryPodiumMetatable)
+
+------------------
+-- GAME STATE MANAGER
+------------------
 
 local gameStateManager = {}
 local gameStateManagerMetatable = {
@@ -1711,21 +1665,24 @@ local gameStateManagerMetatable = {
 setmetatable(gameStateManager, gameStateManagerMetatable)
 gsm = gameStateManager
 
+-------------------------
+-- EVENT FEED
+-------------------------
+
 killfeed = {}
 killfeedMetatable = {
 	__index = {
 		init = function(self)
-			local ui = require("uikit")
 			local bg = ui:createFrame(Color(0,0,0,0.0))
 			local entries = {}
 			for i=1,5 do
-				local entry = ui:createText("", Color.White)
+				local entry = ui:createText("", Color.White, "small")
 				entry:setParent(bg)
 				table.insert(entries, entry)
 			end
 			local redEntries = {}
 			for i=1,5 do
-				local entry = ui:createText("", Color.Red)
+				local entry = ui:createText("", Color.Red, "small")
 				entry:setParent(bg)
 				table.insert(redEntries, entry)
 			end
@@ -1739,7 +1696,10 @@ killfeedMetatable = {
 					e.pos = { self.Width - 5 - e.Width, self.Height - k * (e.Height + 5), 0 }
 					redEntries[k].pos = e.pos
 				end
-				self.pos = { Screen.Width - self.Width, Screen.Height - self.Height, 0 }
+
+				local y = uiRoundDuration.bg.pos.Y or (Screen.Height - Screen.SafeArea.Top - UI_MARGIN)
+				y = y - self.Height
+				self.pos = { Screen.Width - Screen.SafeArea.Right - self.Width - UI_MARGIN, y, 0 }
 			end
 			bg:parentDidResize()
 			self.bg = bg
@@ -1763,41 +1723,277 @@ killfeedMetatable = {
 }
 setmetatable(killfeed, killfeedMetatable)
 
--- display ammo on the left of the screen
-local ammoIndicators = {}
-local maxAmmoPerRow = 12
+------------------------------------
+-- HP bar (uikit component)
+------------------------------------
 
-addAmmoIndication = function(numberAmmo, weaponNameText)
-	local rowSpacing = weaponNameText.Height * 1.2
-	for _, indicator in ipairs(ammoIndicators) do
-		indicator:hide()
+hpBar = {}
+
+hpBar.create = function(self)
+	local node = ui:createNode()
+
+	local bg = ui:createFrame(Color.Black)
+	bg:setParent(node)
+
+	local progressBar = ui:createFrame(Color.Red)
+	progressBar:setParent(bg)
+
+	local progressBarText = ui:createText("100/100", Color.White, "small")
+	progressBarText:setParent(bg)
+
+	local hp = 100
+	local maxHP = 100
+
+	local function update()
+		bg.Height = progressBarText.Height + UI_MARGIN * 2
+		progressBar.Width = bg.Width * (hp / maxHP)
+		progressBar.Height = bg.Height
+		progressBarText.Text = math.floor(hp).."/"..math.floor(maxHP)
+		progressBarText.pos = { (bg.Width - progressBarText.Width) * 0.5, UI_MARGIN, 0 }
 	end
-	ammoIndicators = {}
 
-	local ui = require("uikit")
-	local numRows = math.ceil(numberAmmo / maxAmmoPerRow)
-	for row = 1, numRows do
-		local numAmmoThisRow = math.min(maxAmmoPerRow, numberAmmo - (row - 1) * maxAmmoPerRow)
+	node.setHP = function(self, v)
+		hp = v
+		update()
+	end
 
-		for i = 1, numAmmoThisRow do
-			local ammoIndicator = ui:createShape(Shape(Items.k40s.gun_bullet))
-			
-			ammoIndicator.parentDidResize = function()
-				ammoIndicator.Width = weaponNameText.Height * 0.6
-				ammoIndicator.Height = weaponNameText.Height
-				ammoIndicator.LocalPosition = Number3(
-					((i - 1) / 2) * (ammoIndicator.Width * 3) + 20,
-					(Screen.Height / 3 - 10) - ammoIndicator.Height - (row - 1) * rowSpacing,
-					0
-				)
-			end
-			ammoIndicator.LocalPosition = Number3(
-				((i - 1) / 2) * 35 + 20,
-				(Screen.Height / 3 - 10) - ammoIndicator.Height - (row - 1) * rowSpacing,
-				0
-			)
-			ammoIndicator:parentDidResize()
-			table.insert(ammoIndicators, ammoIndicator)
+	node.setMaxHP = function(self, v)
+		maxHP = v
+		update()
+	end
+
+	node.parentDidResize = function()
+		update()
+	end
+
+	node._width = function(self) return bg.Width end
+	node._height = function(self) return bg.Height end
+
+	node._setWidth = function(self, v) bg.Width = v update() end
+	node._setHeight = function(self, v) return end -- not doing anything
+
+	update()
+
+	return node
+end
+
+------------------------------------
+-- AMMO INDICATOR (uikit component)
+------------------------------------
+
+local ammoIndicator = {}
+
+ammoIndicator.create = function(self)
+	local node = ui:createNode()
+
+	local bulletHeight = 20
+	local bulletWidth = bulletHeight * 0.6
+	local margin = 2
+
+	local cols = 12
+	local bullets = {}
+	local bullet
+	local bulletsDisplayed = 0
+
+	node._height = function(self)
+		local rows = 2 -- always consider 3 rows
+		-- local rows = 1 + math.floor(bulletsDisplayed / cols)
+		return rows * (bulletHeight + margin) - margin
+	end
+
+	node._width = function(self)
+		return cols * (bulletWidth + margin) - margin
+	end
+
+	node.parentDidResize = function(self)
+		local row
+		local col
+		local rows = 2 -- always consider 3 rows
+		-- local rows = 1 + math.floor(bulletsDisplayed / cols)
+
+		for i = 0, bulletsDisplayed - 1 do
+			row = math.floor(i / cols)
+			col = i % cols
+
+			bullet = bullets[i + 1]
+			bullet.pos.X = col * (bulletWidth + margin)
+			bullet.pos.Y = (rows - (row + 1)) * (bulletHeight + margin)
 		end
 	end
+
+	node.setAmmo = function(self, n)
+		bulletsDisplayed = n
+
+		local missingBullets = n - #bullets
+		if missingBullets > 0 then
+			for i = 1, missingBullets do
+				bullet = ui:createShape(Shape(Items.k40s.gun_bullet))
+				bullet.Height = bulletHeight
+				bullet.Width = bulletWidth
+				bullet:setParent(node)
+				table.insert(bullets, bullet)
+			end
+		end
+
+		for _, bullet in ipairs(bullets) do bullet:hide() end
+
+		for i = 0, n - 1 do
+			bullets[i+1]:show()
+		end
+
+		self:parentDidResize() -- refresh
+	end
+
+	return node
+end
+
+-----------------------
+-- PLAYER INFO
+-----------------------
+
+playerInfo = {
+	shown = false,
+	ammoIndicator = nil,	
+	weaponNameCache = "", -- to avoid updating text and icon when weapon didn't change
+	weaponName = nil,
+	weaponIcon = nil,
+	hpBar = nil,
+	scoreBoard = nil,
+	playersInRound = {},
+	scoreKey = "nbKills",
+}
+
+playerInfo.show = function(self)
+	if self.shown then return end
+	self.shown = true
+
+	if not self.ammoIndicator then
+		self.ammoIndicator = ammoIndicator:create()
+	end
+
+	if not self.weaponName then
+		self.weaponName = ui:createText("weaponName", Color.Black, "small")
+	end
+
+	-- if not self.weaponInfo then return end
+			
+	-- 		-- display the weapon next to the weapon name
+	-- 		if self.displayedWeapon then self.displayedWeapon:remove() end
+	-- 		if self.templates[self.weaponInfo.item] == nil then return end
+
+	-- 		local displayedWeapon = ui:createShape(Shape(self.templates[self.weaponInfo.item]), { spherized = true })
+	-- 		self.displayedWeapon = displayedWeapon
+	--   	  displayedWeapon.parentDidResize = function()
+  	-- 		  -- displayedWeapon.Height = self.weaponNameText.Height * 2
+	--   		  -- displayedWeapon.LocalPosition =  self.weaponNameText.pos + Number3(self.weaponNameText.Width + 5, - self.weaponNameText.Height / 2, 0)
+	--  	   end
+	--  	   displayedWeapon.LocalRotation.Y = math.pi / 2
+	--  	   displayedWeapon:parentDidResize()
+
+	if not self.hpBar then
+		self.hpBar = hpBar:create()
+		self.hpBar.Width = 120
+	end
+
+	if not self.scoreBoard then
+		self.scoreBoard = scoreBoard:create()
+	end
+
+	self.ammoIndicator:show()
+	self.weaponName:show()
+	if self.weaponIcon then self.weaponIcon:show() end
+	self.hpBar:show()
+	self.scoreBoard:show()
+
+	self:update()
+end
+
+playerInfo.hide = function(self)
+	if not self.shown then return end
+	self.shown = false
+
+	if self.ammoIndicator then self.ammoIndicator:hide() end
+	if self.weaponName then self.weaponName:hide() end
+	if self.weaponIcon then self.weaponIcon:hide() end
+	if self.hpBar then self.hpBar:hide() end
+	if self.scoreBoard then self.scoreBoard:hide() end
+end
+
+playerInfo.setPlayersInRound = function(self, players)
+	self.playersInRound = players
+	if not self.scoreBoard then
+		self.scoreBoard = scoreBoard:create()
+		self.scoreBoard:hide()
+	end
+	self.scoreBoard:setPlayers(players, self.scoreKey)
+end
+
+playerInfo.update = function(self)
+	if not self.shown then return end
+
+	self.ammoIndicator:setAmmo(weapons.ammo or 0)
+
+	if weapons.weaponName ~= self.weaponNameCache then
+		self.weaponName.Text = weapons.weaponName or "..."
+	end
+
+	self.hpBar:setHP(Player.hp or 0)
+
+	-- update positions
+
+	local x = Screen.SafeArea.Right + UI_MARGIN
+
+	self.ammoIndicator.pos.X = x
+	self.ammoIndicator.pos.Y = Screen.Height * 0.5
+
+	self.weaponName.pos.X = x
+	self.weaponName.pos.Y = self.ammoIndicator.pos.Y + self.ammoIndicator.Height + UI_MARGIN
+
+	self.hpBar.pos.X =  x
+	self.hpBar.pos.Y = self.weaponName.pos.Y + self.weaponName.Height + UI_MARGIN
+
+	self.scoreBoard.pos.X =  x
+	self.scoreBoard.pos.Y = Screen.Height - Screen.SafeArea.Top - self.scoreBoard.Height - UI_MARGIN	
+end
+
+-----------------------
+-- RIBBON TRAIL
+-----------------------
+
+ribbonTrail = {
+	pool = {}
+}
+
+ribbonTrail.add = function(startPos, endPos)
+	local t = table.remove(ribbonTrail.pool)
+	if t == nil then
+		t = Quad()
+		t.Color = Color(255,255,255,220)
+		t.IsUnlit = true
+		t.Anchor = {1, 0.5}
+	end
+
+	local target = endPos
+
+	t.Width = 0
+	t.Height = 0.2 + math.random() * 0.15
+	t.Position = startPos
+	t.Right =  endPos - startPos
+	World:AddChild(t)
+
+	local halfWay = startPos + (endPos - startPos) * 0.5
+	local halfDistance = (halfWay - startPos).Length
+
+	local halfTime = 0.1
+
+	local e = ease:inQuad(t, halfTime, {onDone = function()
+		local e = ease:outQuad(t, halfTime, {onDone = function() 
+			t:RemoveFromParent()
+			table.insert(ribbonTrail.pool, t)
+		end})
+		e.Position = target
+		e.Width = 0
+	end})
+	e.Position = halfWay
+	e.Width = halfDistance * 0.9
 end
