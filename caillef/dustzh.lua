@@ -1,8 +1,6 @@
-
 Config = {
 	Items = { "caillef.wooden_crate", "caillef.barrels", "xavier.damage_indicator", "caillef.roboteye", "k40s.gun_bullet", "voxels.dustzh_chunk_1", "voxels.dustzh_chunk_2", "voxels.dustzh_chunk_3", "voxels.dustzh_chunk_4", "voxels.dustzh_chunk_5", "voxels.flash_1" }
 }
-
 
 -- CONSTANTS 
 
@@ -15,7 +13,6 @@ local MAX_NB_KILLS_END_ROUND = 40
 local weaponName = nil
 
 local UI_MARGIN = 4
-
 
 Config.ConstantAcceleration.Y = -300
 
@@ -92,7 +89,6 @@ Client.OnStart = function()
 	controls:setButtonIcon("action2", "🔫")
 	controls:setButtonIcon("action3", "🔃")
 
-
 	placeProps()
 	-- Map
 
@@ -102,7 +98,8 @@ Client.OnStart = function()
 	-- DEBUG (spawn all players at the same position)
 	-- spawnPoints = JSON:Decode("[{\"p\":[-54.734,11.6904,62.8359],\"rY\":0.0126201}]")
 
-	require("ambience"):set(ambience.dawn)
+	local ambience = require("ambience")
+	ambience:set(ambience.noon)
 
 	-- MODULES
 
@@ -355,16 +352,6 @@ end
 
 Client.Action3Release = function()
 	weapons:reload()
-
-	-- if debugW == nil then
-	-- 	debugW = 1
-	-- else
-	-- 	debugW = debugW + 1
-	-- 	if debugW > #weaponsList then debugW = 1 end
-	-- end
-	-- weapons:setWeapon(Player, debugW)
-
-	-- addDamageIndicator(Player.Position + {100, 0, 100})
 end
 
 
@@ -680,16 +667,15 @@ weaponsMetatable = {
 			multi:registerPlayerAction("dmg", function(_, data)
 				self:damage(data)
 			end)
-			multi:registerPlayerAction("shoot", function(p)
-				self:onShoot(p)
+			multi:registerPlayerAction("shoot", function(p, data)
+				if data.rot ~= nil then
+					self:onShoot(p, Number3(data.pos._x, data.pos._y, data.pos._z), Number3(data.rot._x, data.rot._y, data.rot._z))
+				else
+					self:onShoot(p, Number3(data.pos._x, data.pos._y, data.pos._z))
+				end
 			end)
 			multi:registerPlayerAction("changeWeapon", function(p, data)
 				self:setWeapon(p, data.id)
-			end)
-			multi:registerPlayerAction("bidecal", function(_, data)
-				local pos = Number3(data.pos._x,data.pos._y,data.pos._z)
-				local rot = Number3(data.rot._x,data.rot._y,data.rot._z)
-				self:placeNextBulletImpactDecal(pos, rot)
 			end)
 			Object:Load("voxels.bullethole_large", function(obj)
 				local list = {}
@@ -752,8 +738,10 @@ weaponsMetatable = {
 				d.timer = nil
 			end)
 		end,
-		onShoot = function(self, p)
+		onShoot = function(self, p, impactPos, impactRot) -- part that's common to local and distant players
+			-- impactRot nil if no bullet impact needed
 			if not p.muzzleFlash or not p.weapon then return end
+
 			-- Muzzle Flash
 			if p.muzzleFlashTimer then
 				p.muzzleFlashTimer:Cancel()
@@ -765,10 +753,14 @@ weaponsMetatable = {
 													p.weapon.muzzleFlashY or p.weapon.Height * 0.5,
 													- 3) - p.weapon.Pivot
 
+			p.muzzleFlashLight.Position = p.muzzleFlash.Position
+			p.muzzleFlashLight.On = true
+
 			-- p.muzzleFlashTimer = Timer(2, function() -- debug
 			p.muzzleFlashTimer = Timer(0.03, function()
 				p.muzzleFlash.IsHidden = true
 				p.muzzleFlashTimer = nil
+				p.muzzleFlashLight.On = false
 			end)
 
 			if p == Player then
@@ -791,9 +783,11 @@ weaponsMetatable = {
 				return
 			end
 
-			if p == Player then
-				-- TODO: add this for other players
-				ribbonTrail.add(p.muzzleFlash.Position, Camera.Position + Camera.Forward * 100)
+			if impactPos then
+				ribbonTrail.add(p.muzzleFlash.Position, impactPos)
+				if impactRot then
+					self:placeNextBulletImpactDecal(impactPos, impactRot)
+				end
 			end
 
 			-- SFX
@@ -831,6 +825,17 @@ weaponsMetatable = {
 			flash.Physics = PhysicsMode.Disabled
 
 			p.muzzleFlash = flash
+
+			local l = Light()
+			l.Type = LightType.Point
+			l.Color = Color(255, 250, 170)
+			l.Hardness = 0.6
+			l.PriorityGroup = p == Player and 1 or 2
+			l.Range = 20
+			l.Intensity = 1.02
+			l.On = false
+			World:AddChild(l)
+			p.muzzleFlashLight = l
 
 			self.entityHP:setupEntity(p, self.maxHP) -- add hp, maxHP, and functions damage, heal, resetHP, isDead and isAlive
 			self:setWeapon(p, 1)
@@ -884,9 +889,6 @@ weaponsMetatable = {
 				self:reload()
 			end
 
-			multi:playerAction("shoot")
-			self:onShoot(Player)
-
 			-- recul
 			Player.LocalRotation.X = Player.LocalRotation.X - 0.01
 			Player.LocalRotation.Y = Player.LocalRotation.Y + ((math.random() * 2) - 1) * 0.01
@@ -913,19 +915,27 @@ weaponsMetatable = {
 				impact = Camera:CastRay(Player.CollisionGroups + Map.CollisionGroups, Player)
 			end
 
+			local decalRot
+			local impactPos
+			if impact then
+				impactPos = Camera.Position + Camera.Forward * impact.Distance
+			else
+				-- far away imaginary impact for bullet trails
+				impactPos = Camera.Position + Camera.Forward * 100
+			end
+
 			if impact and impact.Object.CollisionGroups == Map.CollisionGroups then
 				local impact = Camera:CastRay(impact.Object, Player)
-				local pos = Camera.Position + Camera.Forward * impact.Distance
 				local rot = impact.Object.Rotation:Copy()
 				if impact.FaceTouched == Face.Top then rot = rot + {math.pi * 0.5, 0, 0} end
 				if impact.FaceTouched == Face.Bottom then rot = rot + {math.pi * -0.5, 0, 0} end
 				if impact.FaceTouched == Face.Left then rot = rot + {0, math.pi * -0.5, 0} end
 				if impact.FaceTouched == Face.Right then rot = rot + {0, math.pi * 0.5, 0} end
-				if impact.Object.type ~= "barrels" then
-					self:placeNextBulletImpactDecal(pos, rot)
-					multi:playerAction("bidecal", { pos=pos, rot=rot })
-				end
+				decalRot = rot
 			end
+
+			multi:playerAction("shoot", { pos=impactPos, rot=decalRot })
+			self:onShoot(Player, impactPos, decalRot)
 
 			if impact and impact.head or (impact.Object and impact.Object:GetChild(1) and type(impact.Object:GetChild(1)) == "Player") then
 				local player
@@ -1961,7 +1971,8 @@ end
 -----------------------
 
 ribbonTrail = {
-	pool = {}
+	pool = {},
+	speed = 1000
 }
 
 ribbonTrail.add = function(startPos, endPos)
@@ -1984,7 +1995,7 @@ ribbonTrail.add = function(startPos, endPos)
 	local halfWay = startPos + (endPos - startPos) * 0.5
 	local halfDistance = (halfWay - startPos).Length
 
-	local halfTime = 0.1
+	local halfTime = halfDistance / ribbonTrail.speed
 
 	local e = ease:inQuad(t, halfTime, {onDone = function()
 		local e = ease:outQuad(t, halfTime, {onDone = function() 
