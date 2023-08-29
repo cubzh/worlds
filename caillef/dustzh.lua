@@ -1,6 +1,8 @@
+
 Config = {
 	Items = { "caillef.wooden_crate", "caillef.barrels", "xavier.damage_indicator", "caillef.roboteye", "k40s.gun_bullet", "voxels.dustzh_chunk_1", "voxels.dustzh_chunk_2", "voxels.dustzh_chunk_3", "voxels.dustzh_chunk_4", "voxels.dustzh_chunk_5", "voxels.flash_1" }
 }
+
 
 -- CONSTANTS 
 
@@ -13,6 +15,7 @@ local MAX_NB_KILLS_END_ROUND = 40
 local weaponName = nil
 
 local UI_MARGIN = 4
+
 
 Config.ConstantAcceleration.Y = -300
 
@@ -88,6 +91,7 @@ Client.OnStart = function()
 	controls:setButtonIcon("action1", "⬆️")
 	controls:setButtonIcon("action2", "🔫")
 	controls:setButtonIcon("action3", "🔃")
+
 
 	placeProps()
 	-- Map
@@ -230,6 +234,7 @@ Client.OnStart = function()
 	-- UI
 	playerInfo:show()
 
+	instructions:display()
 end
 
 Client.OnPlayerJoin = function(p)
@@ -249,7 +254,6 @@ Client.OnPlayerJoin = function(p)
 			bg:remove()
 		end
 	end)
-	instructions:display()
 end
 
 Client.OnPlayerLeave = function(p)
@@ -278,7 +282,7 @@ Client.DirectionalPad = function(x, y)
 end
 
 Client.OnChat = function(message)
-	if message == "/kill" or message == "!kill" then
+	if message == "!kill" then
 		respawn(Player)
 		return
 	end
@@ -340,9 +344,10 @@ end
 
 Client.Action2 = function()
 	if gsm.state == gsm.States.EndRound then return end
-	weapons:pressShoot()
 	if instructions:isVisible() then
 		instructions:hide()
+	else
+		weapons:pressShoot()
 	end
 end
 
@@ -709,7 +714,11 @@ weaponsMetatable = {
 			end
 			s.Pivot = Number3(0.5,0.5,0.5)
 			Pointer:Hide()
-			UI.Crosshair = true
+			if UI.Crosshair ~= nil then
+				UI.Crosshair = true
+			else
+				--TODO: add crosshair module
+			end
 			local hitMarker = ui:createShape(s)
 			s.Scale = 0.5
 			hitMarker.pos = { Screen.Width / 2 - hitMarker.Width / 2, Screen.Height / 2 - hitMarker.Height / 2, 0 }
@@ -857,7 +866,11 @@ weaponsMetatable = {
 			local tmpRot = Player.weapon.LocalRotation:Copy()
 
 			ease:outBack(Player.weapon, 1).LocalPosition = tmpPos + Number3(0,-3,0)
-			ease:outBack(Player.weapon, 1).LocalRotation = tmpRot + Number3(0.9,0,0)
+			if type(Player.weapon.LocalRotation) == "Rotation" then
+				ease:outBack(Player.weapon, 1).LocalRotation = Rotation(-0.9,0,0) * tmpRot 
+			else
+				ease:outBack(Player.weapon, 1).LocalRotation = tmpRot + Number3(0.9,0,0)
+			end
 			Timer(1, function()
 				ease:outBack(Player.weapon, 1).LocalPosition = tmpPos
 				ease:outBack(Player.weapon, 1).LocalRotation = tmpRot
@@ -927,10 +940,17 @@ weaponsMetatable = {
 			if impact and impact.Object.CollisionGroups == Map.CollisionGroups then
 				local impact = Camera:CastRay(impact.Object, Player)
 				local rot = impact.Object.Rotation:Copy()
-				if impact.FaceTouched == Face.Top then rot = rot + {math.pi * 0.5, 0, 0} end
-				if impact.FaceTouched == Face.Bottom then rot = rot + {math.pi * -0.5, 0, 0} end
-				if impact.FaceTouched == Face.Left then rot = rot + {0, math.pi * -0.5, 0} end
-				if impact.FaceTouched == Face.Right then rot = rot + {0, math.pi * 0.5, 0} end
+				if type(rot) == "Rotation" then
+					if impact.FaceTouched == Face.Top then rot = Rotation(math.pi * 0.5, 0, 0) * rot end
+					if impact.FaceTouched == Face.Bottom then rot = Rotation(math.pi * -0.5, 0, 0) * rot end
+					if impact.FaceTouched == Face.Left then rot = Rotation(0, math.pi * -0.5, 0) * rot end
+					if impact.FaceTouched == Face.Right then rot = Rotation(0, math.pi * 0.5, 0) * rot end
+				else
+					if impact.FaceTouched == Face.Top then rot = rot + Number3(math.pi * 0.5, 0, 0) end
+					if impact.FaceTouched == Face.Bottom then rot = rot + Number3(math.pi * -0.5, 0, 0) end
+					if impact.FaceTouched == Face.Left then rot = rot + Number3(0, math.pi * -0.5, 0) end
+					if impact.FaceTouched == Face.Right then rot = rot + Number3(0, math.pi * 0.5, 0) end
+				end
 				decalRot = rot
 			end
 
