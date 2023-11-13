@@ -12,21 +12,34 @@ Config = {
 [ ] Bonus boost: increse speed for 2 seconds
 --]]
 
-local _DEBUG = false -- start with a single player
-local _SOUND = false -- enable sound
+-- Named constants
+local DEBUG_MODE = false -- start with a single player
+local SOUND_MODE = false -- enable sound
 
-gameStates = {
-	Waiting = 0,
-	Starting = 1,
-	Running = 2,
-	End = 3
+-- Game states
+local GAME_STATES = {
+	WAITING = 0,
+	STARTING = 1,
+	RUNNING = 2,
+	END = 3
 }
 
+-- Trail colors
 local TRAIL_COLORS = { 31, 7, 136, 94, 52, 181, 160, 55 }
-local MAP_SIZE = 100
-speed = 90
 
-local FORWARD,RIGHT,BACKWARD,LEFT = 0,1,2,3
+-- Map size
+local MAP_SIZE = 100
+
+-- Speed
+local SPEED = 90
+
+-- Directions
+local DIRECTIONS = {
+	FORWARD = 0,
+	RIGHT = 1,
+	BACKWARD = 2,
+	LEFT = 3
+}
 
 cameraLocalRotation = Number3(0.5, 0, 0)
 
@@ -81,12 +94,14 @@ cameraLocalRotation = Number3(0.5, 0, 0)
 
 
 
+-- Client functions
 Client.OnStart = function()
 	require("uikit.lua")
 	if not ui then
 		ui = require("uikit")
 	end
 
+	-- Spawn player function
 	spawnPlayer = function(p)
 		if not p.init then initPlayer(p) end
 		resetTrailsOfPlayer(p)
@@ -95,7 +110,6 @@ Client.OnStart = function()
 		p.spec = false
 		p.avatar.IsHidden = false
 		activateGhost(p, 1)
-		-- p.avatar:ClearTextBubble()
 
 		-- Set position
 		local pos
@@ -108,12 +122,12 @@ Client.OnStart = function()
 		setPlayerPosition(p, pos)
 
 		-- Set direction
-		local dir = FORWARD
+		local dir = DIRECTIONS.FORWARD
 		local id = p.ID % 8
-		if id == 0 or id == 5 then dir = FORWARD end
-		if id == 1 or id == 4 then dir = BACKWARD end
-		if id == 2 or id == 7 then dir = LEFT end
-		if id == 3 or id == 6 then dir = RIGHT end
+		if id == 0 or id == 5 then dir = DIRECTIONS.FORWARD end
+		if id == 1 or id == 4 then dir = DIRECTIONS.BACKWARD end
+		if id == 2 or id == 7 then dir = DIRECTIONS.LEFT end
+		if id == 3 or id == 6 then dir = DIRECTIONS.RIGHT end
 		rotatePlayerAndSpawnTrail(p,dir)
 
 		if not p == Player then
